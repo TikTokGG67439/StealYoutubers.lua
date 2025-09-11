@@ -252,9 +252,7 @@ local function setupCharacter(char)
 				local tpPart = getPlayerPlotTpPart()
 				if not tpPart then return end
 
-				-- Защита от повторного телепорта
-				if teleportActive then return end
-
+				-- Телепорт
 				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
 				teleportTarget = tpPart.Position + offset
 				teleportProgress = 0
@@ -265,7 +263,7 @@ local function setupCharacter(char)
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Anchor / Noclip
+				-- Anchor / Noclip включаем только если их не было
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
@@ -295,19 +293,20 @@ local function setupCharacter(char)
 					end
 				end
 
-				-- Coroutine для ожидания окончания телепорта
-				coroutine.wrap(function()
+				-- Ждём завершения телепорта и потом отключаем Anchor/Noclip
+				task.spawn(function()
 					while teleportActive do
 						RunService.RenderStepped:Wait()
 					end
 
+					-- Телепорт закончен
 					buttonStates.Teleport.Value = false
 					if teleportBtn then
 						teleportBtn.Text = "Teleport OFF"
 						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- Ждём перед отключением Anchor/Noclip
+					-- Ждём перед выключением Anchor/Noclip
 					task.wait(8)
 
 					if not anchorWasOn then
@@ -335,7 +334,7 @@ local function setupCharacter(char)
 							end
 						end
 					end
-				end)()
+				end)
 			end)
 		end
 	end
