@@ -242,7 +242,7 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
-				-- Временно включаем, если выключены
+				-- Временно включаем, если были выключены
 				if not anchorWasOn then
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
@@ -284,7 +284,7 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- Ждем 0.2 секунды и отключаем Anchor и Noclip, если они были временно включены
+					-- Ждём 0.2 секунды и отключаем временно включенные Anchor и Noclip
 					task.wait(0.2)
 					if not anchorWasOn then
 						buttonStates.Anchor.Value = false
