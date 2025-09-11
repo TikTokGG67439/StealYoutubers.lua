@@ -238,23 +238,39 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Проверяем состояние Anchor
+				-- Проверяем состояние Anchor и Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
+				local noclipWasOn = buttonStates.Noclip.Value
+
+				-- Временно включаем, если выключены
 				if not anchorWasOn then
-					-- Включаем временно
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
 					hrp.Anchored = true
-					-- Обновляем текст кнопки Anchor
-					for _, btn in ipairs(frame:GetChildren()) do
-						if btn:IsA("TextButton") and btn.Text:find("Anchor") then
+				end
+				if not noclipWasOn then
+					buttonStates.Noclip.Value = true
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") then
+							part.CanCollide = false
+						end
+					end
+				end
+
+				-- Обновляем тексты кнопок Anchor и Noclip
+				for _, btn in ipairs(frame:GetChildren()) do
+					if btn:IsA("TextButton") then
+						if btn.Text:find("Anchor") then
 							btn.Text = "Anchor ON"
+							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+						elseif btn.Text:find("Noclip") then
+							btn.Text = "On Noclip"
 							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 						end
 					end
 				end
 
-				-- Ждём, пока телепорт завершится
+				-- Ждём завершения телепорта
 				local teleWait = RunService.RenderStepped:Wait()
 				spawn(function()
 					while teleportActive do
@@ -268,15 +284,29 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- Если Anchor был выключен до телепорта — выключаем после 0.1 секунды
+					-- Ждем 0.2 секунды и отключаем Anchor и Noclip, если они были временно включены
+					task.wait(0.2)
 					if not anchorWasOn then
-						task.wait(0.1)
 						buttonStates.Anchor.Value = false
 						anchorOnly = false
 						hrp.Anchored = false
 						for _, btn in ipairs(frame:GetChildren()) do
 							if btn:IsA("TextButton") and btn.Text:find("Anchor") then
 								btn.Text = "Anchor OFF"
+								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+							end
+						end
+					end
+					if not noclipWasOn then
+						buttonStates.Noclip.Value = false
+						for _, part in ipairs(char:GetDescendants()) do
+							if part:IsA("BasePart") then
+								part.CanCollide = true
+							end
+						end
+						for _, btn in ipairs(frame:GetChildren()) do
+							if btn:IsA("TextButton") and btn.Text:find("Noclip") then
+								btn.Text = "Off Noclip"
 								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 							end
 						end
