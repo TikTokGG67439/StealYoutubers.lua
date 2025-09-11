@@ -221,7 +221,7 @@ local function setupCharacter(char)
 	end)
 
 	-- ProximityPrompt
-for _, prompt in ipairs(workspace:GetDescendants()) do
+	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			prompt.Triggered:Connect(function()
 				local tpPart = getPlayerPlotTpPart()
@@ -238,11 +238,11 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Проверяем состояние Anchor и Noclip
+				-- Сохраняем состояние Anchor и Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
-				-- Временно включаем, если были выключены
+				-- Временно включаем Anchor и Noclip, если были выключены
 				if not anchorWasOn then
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
@@ -257,7 +257,7 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 					end
 				end
 
-				-- Обновляем тексты кнопок Anchor и Noclip
+				-- Обновляем тексты кнопок
 				for _, btn in ipairs(frame:GetChildren()) do
 					if btn:IsA("TextButton") then
 						if btn.Text:find("Anchor") then
@@ -271,10 +271,9 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 				end
 
 				-- Ждём завершения телепорта
-				local teleWait = RunService.RenderStepped:Wait()
 				spawn(function()
 					while teleportActive do
-						teleWait()
+						RunService.RenderStepped:Wait()
 					end
 
 					-- Выключаем Teleport
@@ -284,7 +283,7 @@ for _, prompt in ipairs(workspace:GetDescendants()) do
 						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- Ждём 0.2 секунды и отключаем временно включенные Anchor и Noclip
+					-- Ждём 0.2 секунды и выключаем временно включенные Anchor и Noclip
 					task.wait(0.2)
 					if not anchorWasOn then
 						buttonStates.Anchor.Value = false
