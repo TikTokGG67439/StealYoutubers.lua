@@ -3,84 +3,7 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local TpPartName = "MultiplierPart"
 
--- ===== Таблица состояния =====
-local State = {
-	anchorOnly = false,
-	speedMode = false,
-	gravityActive = false,
-	teleportActive = false,
-	teleportTarget = nil,
-	teleportProgress = 0,
-	teleportSteps = 15,
-	noclip = false,
-	originalSpeed = 16,
-	humanoid = nil,
-	hrp = nil
-}
-
--- ===== GUI (создаём один раз) =====
-local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AnchoredGUI")
-local btn1, btn2, btn3, btn4, btn5, btn6
-
-if not screenGui then
-	screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "AnchoredGUI"
-	screenGui.ResetOnSpawn = false -- 🔑 сохраняем GUI
-	screenGui.Parent = player:WaitForChild("PlayerGui")
-
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(0, 256, 0, 286)
-	frame.Position = UDim2.new(0.5, -110, 0.5, -75)
-	frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	frame.Active = true
-	frame.Draggable = true
-	frame.Parent = screenGui
-
-	local uiframe = Instance.new("UICorner")
-	uiframe.CornerRadius = UDim.new(0, 20)
-	uiframe.Parent = frame
-
-	local function createLabel(text, pos)
-		local lbl = Instance.new("TextLabel")
-		lbl.Parent = frame
-		lbl.TextScaled = true
-		lbl.Font = Enum.Font.Arcade
-		lbl.Text = text
-		lbl.Size = UDim2.new(0, 200, 0, 50)
-		lbl.Position = pos
-		lbl.TextColor3 = Color3.fromRGB(161, 163, 62)
-		lbl.BackgroundTransparency = 1
-		return lbl
-	end
-
-	createLabel("Saint Hub", UDim2.new(0,30,0,0))
-	createLabel("TT: @GG67439", UDim2.new(0,30,0,30))
-
-	local function createButton(text, pos)
-		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(0, 113, 0, 50)
-		btn.Position = pos
-		btn.TextScaled = true
-		btn.Font = Enum.Font.Arcade
-		btn.BackgroundColor3 = Color3.fromRGB(103,103,103)
-		btn.TextColor3 = Color3.new(0,0,0)
-		btn.Text = text
-		local uic = Instance.new("UICorner")
-		uic.CornerRadius = UDim.new(0,8)
-		uic.Parent = btn
-		btn.Parent = frame
-		return btn
-	end
-
-	btn1 = createButton("Anchor OFF", UDim2.new(0,10,0,212))
-	btn2 = createButton("Speed OFF", UDim2.new(0,130,0,212))
-	btn3 = createButton("Teleport OFF", UDim2.new(0,10,0,150))
-	btn4 = createButton("On Noclip", UDim2.new(0,130,0,150))
-	btn5 = createButton("Forward Tp wait While Update", UDim2.new(0,130,0,90))
-	btn6 = createButton("Maybe Fast Speed With Steal", UDim2.new(0,10,0,90))
-end
-
--- ===== Функция поиска своей базы =====
+-- Функция поиска своей базы
 local function getPlayerPlotTpPart()
 	local plotsFolder = workspace:WaitForChild("Plots")
 	for i = 1, 8 do
@@ -96,149 +19,243 @@ local function getPlayerPlotTpPart()
 	return nil
 end
 
--- ===== Настройка персонажа =====
 local function setupCharacter(char)
 	local hrp = char:WaitForChild("HumanoidRootPart")
 	local humanoid = char:WaitForChild("Humanoid")
-	State.hrp = hrp
-	State.humanoid = humanoid
-	State.originalSpeed = humanoid.WalkSpeed
+	local originalSpeed = humanoid.WalkSpeed
 
-	-- Применяем сохранённые состояния
-	hrp.Anchored = State.anchorOnly
-	humanoid.WalkSpeed = State.speedMode and State.originalSpeed + 20 or State.originalSpeed
-	if State.noclip then
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then part.CanCollide = false end
-		end
-	end
+	-- Состояния кнопок
+	local anchorOnly = false
+	local speedMode = false
+	local gravityActive = false
+	local teleportActive = false
+	local teleportTarget = nil
+	local teleportProgress = 0
+	local teleportSteps = 15
 
-	-- ===== Anchor =====
+	-- GUI
+	local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+	screenGui.Name = "AnchoredGUI"
+
+	local frame = Instance.new("Frame", screenGui)
+	frame.Size = UDim2.new(0, 256, 0, 286)
+	frame.Position = UDim2.new(0.5, -110, 0.5, -75)
+	frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	frame.Active = true
+	frame.Draggable = true
+	
+	local textLabel1 = Instance.new("TextLabel")
+	textLabel1.Parent = frame
+	textLabel1.TextScaled = true
+	textLabel1.Font = Enum.Font.Arcade
+	textLabel1.Text = "Saint Hub"
+	textLabel1.Size = UDim2.new(0, 200, 0, 50)
+	textLabel1.Position = UDim2.new(0, 30, 0, 0)
+	textLabel1.TextColor3 = Color3.fromRGB(161, 163, 62)
+	textLabel1.BackgroundTransparency = 1
+	
+	local textLabel2 = Instance.new("TextLabel")
+	textLabel2.Parent = frame
+	textLabel2.TextScaled = true
+	textLabel2.Font = Enum.Font.Arcade
+	textLabel2.Text = "TT: @GG67439"
+	textLabel2.Size = UDim2.new(0, 200, 0, 50)
+	textLabel2.Position = UDim2.new(0, 30, 0, 30)
+	textLabel2.TextColor3 = Color3.fromRGB(161, 163, 62)
+	textLabel2.BackgroundTransparency = 1
+	
+	
+	local uiframe = Instance.new("UICorner")
+	uiframe.CornerRadius = UDim.new(0, 20)
+	uiframe.Parent = frame
+
+	-- Кнопка 1: Anchor
+	local btn1 = Instance.new("TextButton", frame)
+	btn1.Size = UDim2.new(0, 113, 0, 50)
+	btn1.Position = UDim2.new(0, 10, 0, 212)
+	btn1.TextScaled = true
+	btn1.Font = Enum.Font.Arcade
+	btn1.Text = "Anchor OFF"
+	btn1.BackgroundColor3 = Color3.fromRGB(103, 103, 103)
+	btn1.TextColor3 = Color3.new(0,0,0)
+	
 	btn1.MouseButton1Click:Connect(function()
-		State.anchorOnly = not State.anchorOnly
-		hrp.Anchored = State.anchorOnly
-		if State.anchorOnly then
+		anchorOnly = not anchorOnly
+		hrp.Anchored = anchorOnly -- просто управляем hrp.Anchored
+		if anchorOnly then
 			btn1.Text = "Anchor ON"
-			btn1.BackgroundColor3 = Color3.fromRGB(50,50,50)
+			btn1.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 		else
 			btn1.Text = "Anchor OFF"
-			btn1.BackgroundColor3 = Color3.fromRGB(103,103,103)
+			btn1.BackgroundColor3 = Color3.fromRGB(103, 103, 103)
 		end
 	end)
+	
+	local ui1 = Instance.new("UICorner")
+	ui1.Parent = btn1
+	ui1.CornerRadius = UDim.new(0, 8)
 
-	-- ===== Speed =====
-	local RunService = game:GetService("RunService")
-
-	local RunService = game:GetService("RunService")
-
-	local conn -- сюда будем сохранять соединение
-
+	-- Кнопка 2: Speed
+	local btn2 = Instance.new("TextButton", frame)
+	btn2.Size = UDim2.new(0, 113, 0, 50)
+	btn2.Position = UDim2.new(0, 130, 0, 212)
+	btn2.Text = "Speed OFF"
+	btn2.BackgroundColor3 = Color3.fromRGB(103, 103, 103)
+	btn2.TextScaled = true
+	btn2.TextColor3 = Color3.new(0, 0, 0)
+	btn2.Font = Enum.Font.Arcade
+	local uibtn2 = Instance.new("UICorner")
+	uibtn2.CornerRadius = UDim.new(0, 8)
+	uibtn2.Parent = btn2
+	
 	btn2.MouseButton1Click:Connect(function()
-		State.speedMode = not State.speedMode
-
-		if State.speedMode then
-			-- ВКЛ
+		speedMode = not speedMode
+		if speedMode then
 			btn2.Text = "Speed ON"
-			btn2.BackgroundColor3 = Color3.fromRGB(30,30,30)
-			humanoid.WalkSpeed = State.originalSpeed + 20
-
-			-- Запускаем RenderStepped
-			if not conn then
-				conn = RunService.RenderStepped:Connect(function()
-					if hrp then
-						hrp.Anchored = not hrp.Anchored
-					end
-				end)
-			end
+			btn2.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			humanoid.WalkSpeed = originalSpeed + 20
+			gravityActive = true
 		else
-			-- ВЫКЛ
 			btn2.Text = "Speed OFF"
-			btn2.BackgroundColor3 = Color3.fromRGB(103,103,103)
-			humanoid.WalkSpeed = State.originalSpeed
-
-			-- Останавливаем RenderStepped
-			if conn then
-				conn:Disconnect()
-				conn = nil
-			end
-
-			-- Чтобы точно не застрял в воздухе
-			if hrp then
-				hrp.Anchored = false
-			end
+			btn2.BackgroundColor3 = Color3.fromRGB(103, 103, 103)
+			humanoid.WalkSpeed = originalSpeed
+			gravityActive = false
 		end
 	end)
 
-
-	-- ===== Teleport =====
+	-- Кнопка 3: Teleport
+	local btn3 = Instance.new("TextButton", frame)
+	btn3.Size = UDim2.new(0, 113, 0, 50)
+	btn3.Position = UDim2.new(0, 10, 0, 150)
+	btn3.Text = "Teleport OFF"
+	btn3.TextScaled = true
+	btn3.Font = Enum.Font.Arcade
+	btn3.BackgroundColor3 = Color3.fromRGB(103,103,103)
+	btn3.TextColor3 = Color3.new(0,0,0)
+	
+	local uibtn3 = Instance.new("UICorner")
+	uibtn3.CornerRadius = UDim.new(0, 8)
+	uibtn3.Parent = btn3
+	
 	btn3.MouseButton1Click:Connect(function()
-		State.teleportActive = not State.teleportActive
-		if not State.teleportActive then
-			State.teleportTarget = nil
-			State.teleportProgress = 0
+		teleportActive = not teleportActive
+		if not teleportActive then
+			-- Отмена телепортации
+			teleportTarget = nil
+			teleportProgress = 0
 			btn3.Text = "Teleport OFF"
 			btn3.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		else
+			-- Подготовка к телепорту (ProximityPrompt запускает позже)
 			btn3.Text = "Teleport ON"
 			btn3.BackgroundColor3 = Color3.fromRGB(30,30,30)
 		end
 	end)
+	
+	local btn4 = Instance.new("TextButton", frame)
+	btn4.Size = UDim2.new(0, 113, 0, 50)
+	btn4.Position = UDim2.new(0, 130, 0, 150)
+	btn4.Text = "On Noclip"
+	btn4.TextScaled = true
+	btn4.Font = Enum.Font.Arcade
+	btn4.BackgroundColor3 = Color3.fromRGB(103,103,103)
+	btn4.TextColor3 = Color3.new(0,0,0)
 
-	-- ===== Noclip =====
+	local uibtn4 = Instance.new("UICorner")
+	uibtn4.CornerRadius = UDim.new(0, 8)
+	uibtn4.Parent = btn4
+	
 	btn4.MouseButton1Click:Connect(function()
-		State.noclip = not State.noclip
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = not State.noclip
+		local char = game.Players.LocalPlayer.Character
+		if not char then return end
+		
+		local hpr = char:FindFirstChild("HumanoidRootPart")
+		if not hrp then return end
+		
+		if hpr.CanCollide then
+			
+			for _, part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = false
+				end
 			end
-		end
-		if State.noclip then
 			btn4.Text = "On Noclip"
 			btn4.BackgroundColor3 = Color3.fromRGB(30,30,30)
 		else
+			for _, part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = true
+				end
+			end
 			btn4.Text = "Off Noclip"
 			btn4.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		end
 	end)
-end
+	
+	local btn5 = Instance.new("TextButton", frame)
+	btn5.Size = UDim2.new(0, 113, 0, 50)
+	btn5.Position = UDim2.new(0, 130, 0, 90)
+	btn5.Text = "Forward Tp wait While Update"
+	btn5.TextScaled = true
+	btn5.Font = Enum.Font.Arcade
+	btn5.BackgroundColor3 = Color3.fromRGB(103,103,103)
+	btn5.TextColor3 = Color3.new(0,0,0)
 
--- ===== RenderStepped для плавного телепорта =====
-RunService.RenderStepped:Connect(function(delta)
-	if State.teleportActive and State.teleportTarget and State.hrp then
-		State.teleportProgress = State.teleportProgress + delta
-		local alpha = math.clamp(State.teleportProgress / (0.05 * State.teleportSteps), 0, 1)
-		State.hrp.CFrame = CFrame.new(State.hrp.Position:Lerp(State.teleportTarget, alpha))
-		if alpha >= 1 then
-			State.teleportActive = false
-			State.teleportTarget = nil
-			State.teleportProgress = 0
-			btn3.Text = "Teleport OFF"
-			btn3.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	local uibtn5 = Instance.new("UICorner")
+	uibtn5.CornerRadius = UDim.new(0, 8)
+	uibtn5.Parent = btn5
+	
+	local btn6 = Instance.new("TextButton", frame)
+	btn6.Size = UDim2.new(0, 113, 0, 50)
+	btn6.Position = UDim2.new(0, 10, 0, 90)
+	btn6.Text = "Maybe Fast Speed With Steal"
+	btn6.TextScaled = true
+	btn6.Font = Enum.Font.Arcade
+	btn6.BackgroundColor3 = Color3.fromRGB(103,103,103)
+	btn6.TextColor3 = Color3.new(0,0,0)
+
+	local uibtn6 = Instance.new("UICorner")
+	uibtn6.CornerRadius = UDim.new(0, 8)
+	uibtn6.Parent = btn6
+		
+	-- RenderStepped для плавного телепорта
+	RunService.RenderStepped:Connect(function(delta)
+		if teleportActive and teleportTarget then
+			teleportProgress = teleportProgress + delta
+			local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps), 0, 1)
+			hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget, alpha))
+			if alpha >= 1 then
+				teleportActive = false
+				teleportTarget = nil
+				teleportProgress = 0
+				btn3.Text = "Teleport OFF"
+				btn3.BackgroundColor3 = Color3.fromRGB(255,0,0)
+			end
+		end
+	end)
+
+	-- ProximityPrompt
+	for _, prompt in ipairs(workspace:GetDescendants()) do
+		if prompt:IsA("ProximityPrompt") then
+			prompt.Triggered:Connect(function()
+				if teleportActive then
+					-- Отмена предыдущего прогресса
+					teleportProgress = 0
+					local tpPart = getPlayerPlotTpPart()
+					if tpPart then
+						local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
+						teleportTarget = tpPart.Position + offset
+					else
+						teleportActive = false
+						btn3.Text = "Teleport OFF"
+						btn3.BackgroundColor3 = Color3.fromRGB(255,0,0)
+					end
+				end
+			end)
 		end
 	end
-end)
-
--- ===== ProximityPrompt =====
-for _, prompt in ipairs(workspace:GetDescendants()) do
-	if prompt:IsA("ProximityPrompt") then
-		prompt.Triggered:Connect(function()
-			if State.teleportActive then
-				State.teleportProgress = 0
-				local tpPart = getPlayerPlotTpPart()
-				if tpPart then
-					local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
-					State.teleportTarget = tpPart.Position + offset
-				else
-					State.teleportActive = false
-					btn3.Text = "Teleport OFF"
-					btn3.BackgroundColor3 = Color3.fromRGB(255,0,0)
-				end
-			end
-		end)
-	end
 end
 
--- ===== Подключаем персонаж =====
 if player.Character then
 	setupCharacter(player.Character)
 end
