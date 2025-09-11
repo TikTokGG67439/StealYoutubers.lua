@@ -221,27 +221,30 @@ local function setupCharacter(char)
 	end)
 
 	-- ProximityPrompt
-	for _, prompt in ipairs(workspace:GetDescendants()) do
+for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			prompt.Triggered:Connect(function()
 				local tpPart = getPlayerPlotTpPart()
-				if tpPart then
-					-- Телепорт
-					local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
-					teleportTarget = tpPart.Position + offset
-					teleportProgress = 0
-					teleportActive = true
-					buttonStates.Teleport.Value = true
-					if teleportBtn then
-						teleportBtn.Text = "Teleport ON"
-						teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-					end
+				if not tpPart then return end
 
-					-- Автоматически включаем Anchored
+				-- Телепорт
+				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
+				teleportTarget = tpPart.Position + offset
+				teleportProgress = 0
+				teleportActive = true
+				buttonStates.Teleport.Value = true
+				if teleportBtn then
+					teleportBtn.Text = "Teleport ON"
+					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+				end
+
+				-- Проверяем состояние Anchor
+				local anchorWasOn = buttonStates.Anchor.Value
+				if not anchorWasOn then
+					-- Включаем временно
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
 					hrp.Anchored = true
-
 					-- Обновляем текст кнопки Anchor
 					for _, btn in ipairs(frame:GetChildren()) do
 						if btn:IsA("TextButton") and btn.Text:find("Anchor") then
@@ -250,6 +253,35 @@ local function setupCharacter(char)
 						end
 					end
 				end
+
+				-- Ждём, пока телепорт завершится
+				local teleWait = RunService.RenderStepped:Wait()
+				spawn(function()
+					while teleportActive do
+						teleWait()
+					end
+
+					-- Выключаем Teleport
+					buttonStates.Teleport.Value = false
+					if teleportBtn then
+						teleportBtn.Text = "Teleport OFF"
+						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+					end
+
+					-- Если Anchor был выключен до телепорта — выключаем после 0.1 секунды
+					if not anchorWasOn then
+						task.wait(0.1)
+						buttonStates.Anchor.Value = false
+						anchorOnly = false
+						hrp.Anchored = false
+						for _, btn in ipairs(frame:GetChildren()) do
+							if btn:IsA("TextButton") and btn.Text:find("Anchor") then
+								btn.Text = "Anchor OFF"
+								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+							end
+						end
+					end
+				end)
 			end)
 		end
 	end
