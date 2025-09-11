@@ -92,7 +92,7 @@ local function setupCharacter(char)
 	local textbuttonframe = Instance.new("ImageButton")
 	textbuttonframe.Parent = screenGui
 	textbuttonframe.Size = UDim2.new(0, 75, 0, 75)
-	textbuttonframe.Position = UDim2.new(0, 50, 0, 300)
+	textbuttonframe.Position = UDim2.new(0, 200, 0, 100)
 	textbuttonframe.Draggable = true
 	textbuttonframe.Image = aidi
 	
@@ -118,7 +118,7 @@ local function setupCharacter(char)
 	end
 
 	makeLabel("Nova Hub", UDim2.new(0,30,0,0))
-	makeLabel("TT: @novahub57", UDim2.new(0,30,0,30))
+	makeLabel("TT: @GG67439", UDim2.new(0,30,0,30))
 
 	local uiframe = Instance.new("UICorner")
 	uiframe.CornerRadius = UDim.new(0,20)
@@ -243,6 +243,7 @@ local function setupCharacter(char)
 		end
 	end)
 
+	
 	-- ProximityPrompt
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
@@ -261,15 +262,18 @@ local function setupCharacter(char)
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Anchor / Noclip
+				-- Проверяем состояние Anchor и Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
+				-- Временно включаем Anchor
 				if not anchorWasOn then
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
 					hrp.Anchored = true
 				end
+
+				-- Временно включаем Noclip
 				if not noclipWasOn then
 					buttonStates.Noclip.Value = true
 					for _, part in ipairs(char:GetDescendants()) do
@@ -279,7 +283,7 @@ local function setupCharacter(char)
 					end
 				end
 
-				-- Обновляем тексты кнопок
+				-- Обновляем кнопки (визуально)
 				for _, btn in ipairs(frame:GetChildren()) do
 					if btn:IsA("TextButton") then
 						if btn.Text:find("Anchor") then
@@ -295,7 +299,7 @@ local function setupCharacter(char)
 				-- Ждём завершения телепорта
 				spawn(function()
 					while teleportActive do
-						RunService.RenderStepped:Wait() -- ждём каждый кадр
+						RunService.RenderStepped:Wait()
 					end
 
 					-- Выключаем Teleport
@@ -308,6 +312,7 @@ local function setupCharacter(char)
 					-- Ждём 10 секунд перед отключением Anchor / Noclip
 					task.wait(10)
 
+					-- Если Anchor был включён только ради телепорта → выключаем
 					if not anchorWasOn then
 						buttonStates.Anchor.Value = false
 						anchorOnly = false
@@ -320,6 +325,7 @@ local function setupCharacter(char)
 						end
 					end
 
+					-- Если Noclip был включён только ради телепорта → выключаем
 					if not noclipWasOn then
 						buttonStates.Noclip.Value = false
 						for _, part in ipairs(char:GetDescendants()) do
