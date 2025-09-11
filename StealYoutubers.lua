@@ -106,7 +106,7 @@ local function setupCharacter(char)
 
 	-- Применяем сохранённые состояния
 	hrp.Anchored = State.anchorOnly
-	humanoid.WalkSpeed = State.speedMode and State.originalSpeed + 20 or State.originalSpeed
+	humanoid.WalkSpeed = State.speedMode and State.originalSpeed + 60 or State.originalSpeed
 	if State.noclip then
 		for _, part in ipairs(char:GetDescendants()) do
 			if part:IsA("BasePart") then part.CanCollide = false end
