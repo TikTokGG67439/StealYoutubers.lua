@@ -72,7 +72,7 @@ local function setupCharacter(char)
 	local teleportActive = buttonStates.Teleport.Value
 	local teleportTarget = nil
 	local teleportProgress = 0
-	local teleportSteps = 15
+	local teleportSteps = 30
 	local gravityActive = speedMode
 
 	-- GUI
