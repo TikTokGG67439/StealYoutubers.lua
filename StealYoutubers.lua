@@ -81,11 +81,29 @@ local function setupCharacter(char)
 
 	local frame = Instance.new("Frame", screenGui)
 	frame.Size = UDim2.new(0, 256, 0, 286)
-	frame.Position = UDim2.new(0.5, -110, 0.5, -75)
+	frame.Position = UDim2.new(0.5, -130, 0.5, -135)
 	frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 	frame.Active = true
 	frame.Draggable = true
+	frame.Visible = false
 
+	local aidi = "rbxassetid://71285066607329"
+
+	local textbuttonframe = Instance.new("ImageButton")
+	textbuttonframe.Parent = screenGui
+	textbuttonframe.Size = UDim2.new(0, 75, 0, 75)
+	textbuttonframe.Position = UDim2.new(0, 50, 0, 300)
+	textbuttonframe.Draggable = true
+	textbuttonframe.Image = aidi
+	
+	local uibuttonframe = Instance.new("UICorner")
+	uibuttonframe.CornerRadius = UDim.new(4, 15)
+	uibuttonframe.Parent = textbuttonframe
+	
+	textbuttonframe.MouseButton1Click:Connect(function()
+		frame.Visible = not frame.Visible
+	end)
+	
 	local function makeLabel(text,pos)
 		local lbl = Instance.new("TextLabel")
 		lbl.Parent = frame
@@ -94,17 +112,22 @@ local function setupCharacter(char)
 		lbl.Font = Enum.Font.Arcade
 		lbl.Size = UDim2.new(0, 200, 0, 50)
 		lbl.Position = pos
-		lbl.TextColor3 = Color3.fromRGB(161,163,62)
+		lbl.TextColor3 = Color3.fromRGB(39, 151, 211)
 		lbl.BackgroundTransparency = 1
 		return lbl
 	end
 
-	makeLabel("Saint Hub", UDim2.new(0,30,0,0))
+	makeLabel("Nova Hub", UDim2.new(0,30,0,0))
 	makeLabel("TT: @GG67439", UDim2.new(0,30,0,30))
 
 	local uiframe = Instance.new("UICorner")
 	uiframe.CornerRadius = UDim.new(0,20)
 	uiframe.Parent = frame
+	
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Thickness = 4
+	uiStroke.Color = Color3.fromRGB(211, 79, 35)
+	uiStroke.Parent = frame
 
 	-- Функция создания кнопки
 	local function createButton(name,pos,bv,onChange)
