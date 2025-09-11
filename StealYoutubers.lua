@@ -1,304 +1,278 @@
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local TpPartName = "MultiplierPart"
 
--- Состояния кнопок
+-- Папка для хранения состояний кнопок
 local function getOrCreateButtonStates()
-	local states = player:FindFirstChild("ButtonStates")
-	if not states then
-		states = Instance.new("Folder")
-		states.Name = "ButtonStates"
-		states.Parent = player
+    local states = player:FindFirstChild("ButtonStates")
+    if not states then
+        states = Instance.new("Folder")
+        states.Name = "ButtonStates"
+        states.Parent = player
 
-		for _, name in ipairs({"Anchor","Speed","Teleport","Noclip","ForwardTp","FastSpeedSteal"}) do
-			local bv = Instance.new("BoolValue")
-			bv.Name = name
-			bv.Value = false
-			bv.Parent = states
-		end
-	end
-	return states
+        local names = {"Anchor", "Speed", "Teleport", "Noclip", "ForwardTp", "FastSpeedSteal"}
+        for _, name in ipairs(names) do
+            local bv = Instance.new("BoolValue")
+            bv.Name = name
+            bv.Value = false
+            bv.Parent = states
+        end
+    end
+    return states
 end
 
 local buttonStates = getOrCreateButtonStates()
 
--- Получение своей базы
+-- Функция поиска своей базы
 local function getPlayerPlotTpPart()
-	local plotsFolder = workspace:WaitForChild("Plots")
-	for i = 1, 8 do
-		local plot = plotsFolder:FindFirstChild("Plot"..i)
-		if plot then
-			local ownerValue = plot:FindFirstChild("Owner")
-			local tpPart = plot:FindFirstChild(TpPartName)
-			if ownerValue and ownerValue.Value == player.Name and tpPart then
-				return tpPart
-			end
-		end
-	end
-	return nil
+    local plotsFolder = workspace:WaitForChild("Plots")
+    for i = 1, 8 do
+        local plot = plotsFolder:FindFirstChild("Plot"..i)
+        if plot then
+            local ownerValue = plot:FindFirstChild("Owner")
+            local tpPart = plot:FindFirstChild(TpPartName)
+            if ownerValue and ownerValue.Value == player.Name and tpPart then
+                return tpPart
+            end
+        end
+    end
+    return nil
 end
 
--- Настройка персонажа
 local function setupCharacter(char)
-	local hrp = char:WaitForChild("HumanoidRootPart")
-	local humanoid = char:WaitForChild("Humanoid")
-	local originalSpeed = humanoid.WalkSpeed
-	local anchorOnly = buttonStates.Anchor.Value
-	local speedMode = buttonStates.Speed.Value
-	local teleportActive = buttonStates.Teleport.Value
-	local teleportTarget = nil
-	local teleportProgress = 0
-	local teleportSteps = 30
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local humanoid = char:WaitForChild("Humanoid")
+    local originalSpeed = humanoid.WalkSpeed
+    local anchorOnly = buttonStates.Anchor.Value
+    local speedMode = buttonStates.Speed.Value
+    local teleportActive = buttonStates.Teleport.Value
+    local teleportTarget = nil
+    local teleportProgress = 0
+    local teleportSteps = 30
 
-	-- GUI
-	local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-	screenGui.Name = "AnchoredGUI"
+    -- GUI
+    local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+    screenGui.Name = "AnchoredGUI"
 
-	local frame = Instance.new("Frame", screenGui)
-	frame.Size = UDim2.new(0, 256, 0, 286)
-	frame.Position = UDim2.new(0.5, -130, 0.5, -135)
-	frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	frame.Active = true
-	frame.Draggable = true
-	frame.Visible = false
+    local frame = Instance.new("Frame", screenGui)
+    frame.Size = UDim2.new(0, 256, 0, 286)
+    frame.Position = UDim2.new(0.5, -130, 0.5, -135)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Visible = false
 
-	local aidi = "rbxassetid://71285066607329"
-	local textbuttonframe = Instance.new("ImageButton")
-	textbuttonframe.Parent = screenGui
-	textbuttonframe.Size = UDim2.new(0, 75, 0, 75)
-	textbuttonframe.Position = UDim2.new(0, 200, 0, 100)
-	textbuttonframe.Draggable = true
-	textbuttonframe.Image = aidi
-	local uibuttonframe = Instance.new("UICorner")
-	uibuttonframe.CornerRadius = UDim.new(4, 15)
-	uibuttonframe.Parent = textbuttonframe
-	textbuttonframe.MouseButton1Click:Connect(function()
-		frame.Visible = not frame.Visible
-	end)
+    local aidi = "rbxassetid://71285066607329"
+    local textbuttonframe = Instance.new("ImageButton")
+    textbuttonframe.Parent = screenGui
+    textbuttonframe.Size = UDim2.new(0, 75, 0, 75)
+    textbuttonframe.Position = UDim2.new(0, 200, 0, 100)
+    textbuttonframe.Draggable = true
+    textbuttonframe.Image = aidi
+    local uibuttonframe = Instance.new("UICorner")
+    uibuttonframe.CornerRadius = UDim.new(4, 15)
+    uibuttonframe.Parent = textbuttonframe
+    textbuttonframe.MouseButton1Click:Connect(function()
+        frame.Visible = not frame.Visible
+    end)
 
-	local function makeLabel(text,pos)
-		local lbl = Instance.new("TextLabel")
-		lbl.Parent = frame
-		lbl.Text = text
-		lbl.TextScaled = true
-		lbl.Font = Enum.Font.Arcade
-		lbl.Size = UDim2.new(0, 200, 0, 50)
-		lbl.Position = pos
-		lbl.TextColor3 = Color3.fromRGB(39, 151, 211)
-		lbl.BackgroundTransparency = 1
-		return lbl
-	end
+    local function makeLabel(text,pos)
+        local lbl = Instance.new("TextLabel")
+        lbl.Parent = frame
+        lbl.Text = text
+        lbl.TextScaled = true
+        lbl.Font = Enum.Font.Arcade
+        lbl.Size = UDim2.new(0, 200, 0, 50)
+        lbl.Position = pos
+        lbl.TextColor3 = Color3.fromRGB(39, 151, 211)
+        lbl.BackgroundTransparency = 1
+        return lbl
+    end
 
-	makeLabel("Nova Hub", UDim2.new(0,30,0,0))
-	makeLabel("TT: @GG67439", UDim2.new(0,30,0,30))
+    makeLabel("Nova Hub", UDim2.new(0,30,0,0))
+    makeLabel("TT: @GG67439", UDim2.new(0,30,0,30))
 
-	local uiframe = Instance.new("UICorner")
-	uiframe.CornerRadius = UDim.new(0,20)
-	uiframe.Parent = frame
-	local uiStroke = Instance.new("UIStroke")
-	uiStroke.Thickness = 4
-	uiStroke.Color = Color3.fromRGB(211, 79, 35)
-	uiStroke.Parent = frame
+    local uiframe = Instance.new("UICorner")
+    uiframe.CornerRadius = UDim.new(0,20)
+    uiframe.Parent = frame
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Thickness = 4
+    uiStroke.Color = Color3.fromRGB(211, 79, 35)
+    uiStroke.Parent = frame
 
-	-- Создание кнопки
-	local function createButton(name,pos,bv,onChange)
-		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(0,113,0,50)
-		btn.Position = pos
-		btn.TextScaled = true
-		btn.Font = Enum.Font.Arcade
-		btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		btn.TextColor3 = Color3.new(0,0,0)
-		btn.Parent = frame
-		local uic = Instance.new("UICorner")
-		uic.CornerRadius = UDim.new(0,8)
-		uic.Parent = btn
-		onChange(bv.Value,btn)
-		btn.MouseButton1Click:Connect(function()
-			bv.Value = not bv.Value
-			onChange(bv.Value,btn)
-		end)
-		return btn
-	end
+    -- Функция создания кнопки
+    local function createButton(name,pos,bv,onChange)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0,113,0,50)
+        btn.Position = pos
+        btn.TextScaled = true
+        btn.Font = Enum.Font.Arcade
+        btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        btn.TextColor3 = Color3.new(0,0,0)
+        btn.Parent = frame
+        local uic = Instance.new("UICorner")
+        uic.CornerRadius = UDim.new(0,8)
+        uic.Parent = btn
+        onChange(bv.Value,btn)
+        btn.MouseButton1Click:Connect(function()
+            bv.Value = not bv.Value
+            onChange(bv.Value,btn)
+        end)
+        return btn
+    end
 
-	-- Anchor
-	createButton("Anchor OFF",UDim2.new(0,10,0,212),buttonStates.Anchor,function(state,btn)
-		anchorOnly = state
-		hrp.Anchored = state
-		btn.Text = state and "Anchor ON" or "Anchor OFF"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Anchor
+    createButton("Anchor OFF",UDim2.new(0,10,0,212),buttonStates.Anchor,function(state,btn)
+        anchorOnly = state
+        hrp.Anchored = state
+        if state then
+            btn.Text = "Anchor ON"
+            btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else
+            btn.Text = "Anchor OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        end
+    end)
 
-	-- Speed
-	createButton("Speed OFF",UDim2.new(0,130,0,212),buttonStates.Speed,function(state,btn)
-		speedMode = state
-		humanoid.WalkSpeed = state and originalSpeed + 20 or originalSpeed
-		btn.Text = state and "Speed ON" or "Speed OFF"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Speed
+    createButton("Speed OFF",UDim2.new(0,130,0,212),buttonStates.Speed,function(state,btn)
+        speedMode = state
+        humanoid.WalkSpeed = state and originalSpeed + 20 or originalSpeed
+        if state then
+            btn.Text = "Speed ON"
+            btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else
+            btn.Text = "Speed OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        end
+    end)
 
-	-- Teleport
-	local teleportBtn = createButton("Teleport OFF",UDim2.new(0,10,0,150),buttonStates.Teleport,function(state,btn)
-		teleportActive = state
-		if not state then
-			teleportTarget = nil
-			teleportProgress = 0
-		end
-		btn.Text = state and "Teleport ON" or "Teleport OFF"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Teleport
+    local teleportBtn
+    teleportBtn = createButton("Teleport OFF",UDim2.new(0,10,0,150),buttonStates.Teleport,function(state,btn)
+        teleportActive = state
+        if state then
+            btn.Text = "Teleport ON"
+            btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else
+            teleportTarget = nil
+            teleportProgress = 0
+            btn.Text = "Teleport OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        end
+    end)
 
-	-- Noclip
-	createButton("On Noclip",UDim2.new(0,130,0,150),buttonStates.Noclip,function(state,btn)
-		for _,part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = not state
-			end
-		end
-		btn.Text = state and "On Noclip" or "Off Noclip"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Noclip
+    createButton("On Noclip",UDim2.new(0,130,0,150),buttonStates.Noclip,function(state,btn)
+        for _,part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not state
+            end
+        end
+        if state then
+            btn.Text = "On Noclip"
+            btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else
+            btn.Text = "Off Noclip"
+            btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        end
+    end)
 
-	-- Forward Tp
-	createButton("Forward Tp wait While Update",UDim2.new(0,130,0,90),buttonStates.ForwardTp,function(state,btn)
-		btn.Text = state and "Forward Tp ON" or "Forward Tp OFF"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Forward Tp
+    createButton("Forward Tp wait While Update",UDim2.new(0,130,0,90),buttonStates.ForwardTp,function(state,btn)
+        btn.Text = state and "Forward Tp ON" or "Forward Tp OFF"
+        btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+    end)
 
-	-- Fast Speed
-	createButton("Maybe Fast Speed With Steal",UDim2.new(0,10,0,90),buttonStates.FastSpeedSteal,function(state,btn)
-		btn.Text = state and "Fast Speed ON" or "Fast Speed OFF"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Fast Speed
+    createButton("Maybe Fast Speed With Steal",UDim2.new(0,10,0,90),buttonStates.FastSpeedSteal,function(state,btn)
+        btn.Text = state and "Fast Speed ON" or "Fast Speed OFF"
+        btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+    end)
 
-	-- Плавный телепорт
-	RunService.RenderStepped:Connect(function(delta)
-		if teleportActive and teleportTarget then
-			teleportProgress += delta
-			local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps),0,1)
-			hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget,alpha))
-			if alpha >= 1 then
-				teleportActive = false
-				teleportTarget = nil
-				teleportProgress = 0
-				buttonStates.Teleport.Value = false
-				if teleportBtn then
-					teleportBtn.Text = "Teleport OFF"
-					teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-				end
-			end
-		end
-	end)
+    -- RenderStepped для плавного телепорта
+    local renderConn
+    renderConn = RunService.RenderStepped:Connect(function(delta)
+        if teleportActive and teleportTarget then
+            teleportProgress += delta
+            local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps),0,1)
+            hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget,alpha))
+            if alpha >= 1 then
+                teleportActive = false
+                teleportTarget = nil
+                teleportProgress = 0
+                buttonStates.Teleport.Value = false
+                if teleportBtn then
+                    teleportBtn.Text = "Teleport OFF"
+                    teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+                end
+            end
+        end
+    end)
 
-	-- Подключение ProximityPrompt с корректной логикой отключения
-	local promptConns = {}
-	for _, prompt in ipairs(workspace:GetDescendants()) do
-		if prompt:IsA("ProximityPrompt") then
-			local conn
-			conn = prompt.Triggered:Connect(function()
-				local tpPart = getPlayerPlotTpPart()
-				if not tpPart then return end
+    -- ProximityPrompt
+    local promptConns = {}
+    for _, prompt in ipairs(workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            local conn
+            conn = prompt.Triggered:Connect(function()
+                local tpPart = getPlayerPlotTpPart()
+                if not tpPart then return end
 
-				-- Настройка телепорта
-				local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
-				teleportTarget = tpPart.Position + offset
-				teleportProgress = 0
-				teleportActive = true
-				buttonStates.Teleport.Value = true
-				if teleportBtn then
-					teleportBtn.Text = "Teleport ON"
-					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-				end
+                teleportTarget = tpPart.Position + Vector3.new(math.random(-3,3),3,math.random(-3,3))
+                teleportProgress = 0
+                teleportActive = true
+                buttonStates.Teleport.Value = true
+                if teleportBtn then
+                    teleportBtn.Text = "Teleport ON"
+                    teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+                end
 
-				-- Сохраняем текущие состояния
-				local anchorWasOn = buttonStates.Anchor.Value
-				local noclipWasOn = buttonStates.Noclip.Value
+                -- Сохраняем текущее состояние Anchor и Noclip
+                local anchorWasOn = buttonStates.Anchor.Value
+                local noclipWasOn = buttonStates.Noclip.Value
 
-				-- Временно включаем Anchor
-				if not anchorWasOn then
-					buttonStates.Anchor.Value = true
-					anchorOnly = true
-					hrp.Anchored = true
-				end
+                -- Временно включаем Anchor и Noclip
+                if not anchorWasOn then
+                    buttonStates.Anchor.Value = true
+                    hrp.Anchored = true
+                end
+                if not noclipWasOn then
+                    buttonStates.Noclip.Value = true
+                    for _, part in ipairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
 
-				-- Временно включаем Noclip
-				if not noclipWasOn then
-					buttonStates.Noclip.Value = true
-					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then
-							part.CanCollide = false
-						end
-					end
-				end
+                -- Завершаем телепорт
+                spawn(function()
+                    while teleportActive do RunService.RenderStepped:Wait() end
 
-				-- Обновляем кнопки визуально
-				for _, btn in ipairs(frame:GetChildren()) do
-					if btn:IsA("TextButton") then
-						if btn.Text:find("Anchor") then
-							btn.Text = "Anchor ON"
-							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-						elseif btn.Text:find("Noclip") then
-							btn.Text = "On Noclip"
-							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-						end
-					end
-				end
-
-				-- Ждём завершения телепорта
-				spawn(function()
-					while teleportActive do
-						RunService.RenderStepped:Wait()
-					end
-
-					-- После телепорта выключаем Anchor/Noclip если они были включены только для телепорта
-					task.wait(10)
-
-					if not anchorWasOn then
-						buttonStates.Anchor.Value = false
-						anchorOnly = false
-						hrp.Anchored = false
-						for _, btn in ipairs(frame:GetChildren()) do
-							if btn:IsA("TextButton") and btn.Text:find("Anchor") then
-								btn.Text = "Anchor OFF"
-								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-							end
-						end
-					end
-
-					if not noclipWasOn then
-						buttonStates.Noclip.Value = false
-						for _, part in ipairs(char:GetDescendants()) do
-							if part:IsA("BasePart") then
-								part.CanCollide = true
-							end
-						end
-						for _, btn in ipairs(frame:GetChildren()) do
-							if btn:IsA("TextButton") and btn.Text:find("Noclip") then
-								btn.Text = "Off Noclip"
-								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-							end
-						end
-					end
-				end)
-			end)
-			table.insert(promptConns, conn)
-		end
-	end
-
-	-- Отключение соединений при смерти персонажа
-	char:WaitForChild("Humanoid").Died:Connect(function()
-		for _, conn in ipairs(promptConns) do
-			if conn then
-				conn:Disconnect()
-			end
-		end
-	end)
+                    -- Телепорт завершен, возвращаем Anchor/Noclip
+                    task.wait(0.1)
+                    if not anchorWasOn then
+                        buttonStates.Anchor.Value = false
+                        hrp.Anchored = false
+                    end
+                    if not noclipWasOn then
+                        buttonStates.Noclip.Value = false
+                        for _, part in ipairs(char:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = true
+                            end
+                        end
+                    end
+                end)
+            end)
+            table.insert(promptConns, conn)
+        end
+    end
 end
 
--- Запуск для текущего персонажа
 if player.Character then
-	setupCharacter(player.Character)
+    setupCharacter(player.Character)
 end
 player.CharacterAdded:Connect(setupCharacter)
