@@ -118,7 +118,7 @@ local function setupCharacter(char)
 	end
 
 	makeLabel("Nova Hub", UDim2.new(0,30,0,0))
-	makeLabel("TT: @GG67439", UDim2.new(0,30,0,30))
+	makeLabel("TT: @novahub57", UDim2.new(0,30,0,30))
 
 	local uiframe = Instance.new("UICorner")
 	uiframe.CornerRadius = UDim.new(0,20)
