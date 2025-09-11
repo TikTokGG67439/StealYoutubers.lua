@@ -72,7 +72,7 @@ local function setupCharacter(char)
 	local teleportActive = buttonStates.Teleport.Value
 	local teleportTarget = nil
 	local teleportProgress = 0
-	local teleportSteps = 15
+	local teleportSteps = 30
 	local gravityActive = speedMode
 
 	-- GUI
@@ -285,7 +285,7 @@ local function setupCharacter(char)
 					end
 
 					-- Ждём 0.2 секунды и отключаем временно включенные Anchor и Noclip
-					task.wait(1)
+					task.wait(5)
 					if not anchorWasOn then
 						buttonStates.Anchor.Value = false
 						anchorOnly = false
