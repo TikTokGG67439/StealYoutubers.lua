@@ -245,98 +245,107 @@ local function setupCharacter(char)
 	end)
 
 	-- ProximityPrompt
-	for _, prompt in ipairs(workspace:GetDescendants()) do
-		if prompt:IsA("ProximityPrompt") then
-			prompt.Triggered:Connect(function()
-				local tpPart = getPlayerPlotTpPart()
-				if not tpPart then return end
+	-- Подключаем ProximityPrompt только один раз
+	local function setupPrompts(char, frame)
+		local hrp = char:WaitForChild("HumanoidRootPart")
 
-				-- Телепорт
-				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
-				teleportTarget = tpPart.Position + offset
-				teleportProgress = 0
-				teleportActive = true
-				buttonStates.Teleport.Value = true
-				if teleportBtn then
-					teleportBtn.Text = "InstantSteal ON"
-					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-				end
+		for _, prompt in ipairs(workspace:GetDescendants()) do
+			if prompt:IsA("ProximityPrompt") then
+				local connection
+				connection = prompt.Triggered:Connect(function()
+					-- Если телепорт уже активен, не запускаем снова
+					if teleportActive then return end
 
-				-- Anchor / Noclip
-				local anchorWasOn = buttonStates.Anchor.Value
-				local noclipWasOn = buttonStates.Noclip.Value
+					local tpPart = getPlayerPlotTpPart()
+					if not tpPart then return end
 
-				if not anchorWasOn then
-					buttonStates.Anchor.Value = true
-					anchorOnly = true
-					hrp.Anchored = true
-				end
-				if not noclipWasOn then
-					buttonStates.Noclip.Value = true
-					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then
-							part.CanCollide = false
-						end
-					end
-				end
-
-				-- Обновляем тексты кнопок
-				for _, btn in ipairs(frame:GetChildren()) do
-					if btn:IsA("TextButton") then
-						if btn.Text:find("Anchor") then
-							btn.Text = "Anchor ON"
-							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-						elseif btn.Text:find("Noclip") then
-							btn.Text = "On Noclip"
-							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-						end
-					end
-				end
-
-				-- Ждём завершения телепорта
-				spawn(function()
-					while teleportActive do
-						RunService.RenderStepped:Wait() -- ждём каждый кадр
-					end
-
-					-- Выключаем Teleport
-					buttonStates.Teleport.Value = false
+					-- Телепорт
+					local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
+					teleportTarget = tpPart.Position + offset
+					teleportProgress = 0
+					teleportActive = true
+					buttonStates.Teleport.Value = true
 					if teleportBtn then
-						teleportBtn.Text = "Teleport OFF"
-						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+						teleportBtn.Text = "InstantSteal ON"
+						teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 					end
 
-					-- Ждём 10 секунд перед отключением Anchor / Noclip
-					task.wait(8)
+					-- Сохраняем состояния Anchor/Noclip
+					local anchorWasOn = buttonStates.Anchor.Value
+					local noclipWasOn = buttonStates.Noclip.Value
 
+					-- Включаем Anchor и Noclip
 					if not anchorWasOn then
-						buttonStates.Anchor.Value = false
-						anchorOnly = false
-						hrp.Anchored = false
-						for _, btn in ipairs(frame:GetChildren()) do
-							if btn:IsA("TextButton") and btn.Text:find("Anchor") then
-								btn.Text = "Anchor OFF"
-								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-							end
-						end
+						buttonStates.Anchor.Value = true
+						hrp.Anchored = true
 					end
-
 					if not noclipWasOn then
-						buttonStates.Noclip.Value = false
+						buttonStates.Noclip.Value = true
 						for _, part in ipairs(char:GetDescendants()) do
 							if part:IsA("BasePart") then
-								part.CanCollide = true
-							end
-						end
-						for _, btn in ipairs(frame:GetChildren()) do
-							if btn:IsA("TextButton") and btn.Text:find("Noclip") then
-								btn.Text = "Off Noclip"
-								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+								part.CanCollide = false
 							end
 						end
 					end
+
+					-- Обновляем кнопки
+					for _, btn in ipairs(frame:GetChildren()) do
+						if btn:IsA("TextButton") then
+							if btn.Text:find("Anchor") then
+								btn.Text = "Anchor ON"
+								btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+							elseif btn.Text:find("Noclip") then
+								btn.Text = "On Noclip"
+								btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+							end
+						end
+					end
+
+					-- Ждём завершения телепорта
+					local tpCoroutine = coroutine.create(function()
+						while teleportActive do
+							RunService.RenderStepped:Wait()
+						end
+
+						-- Телепорт завершён
+						buttonStates.Teleport.Value = false
+						if teleportBtn then
+							teleportBtn.Text = "Teleport OFF"
+							teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+						end
+
+						-- Подождать перед отключением Anchor/Noclip
+						task.wait(8)
+
+						if not anchorWasOn then
+							buttonStates.Anchor.Value = false
+							hrp.Anchored = false
+							for _, btn in ipairs(frame:GetChildren()) do
+								if btn:IsA("TextButton") and btn.Text:find("Anchor") then
+									btn.Text = "Anchor OFF"
+									btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+								end
+							end
+						end
+
+						if not noclipWasOn then
+							buttonStates.Noclip.Value = false
+							for _, part in ipairs(char:GetDescendants()) do
+								if part:IsA("BasePart") then
+									part.CanCollide = true
+								end
+							end
+							for _, btn in ipairs(frame:GetChildren()) do
+								if btn:IsA("TextButton") and btn.Text:find("Noclip") then
+									btn.Text = "Off Noclip"
+									btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+								end
+							end
+						end
+					end)
+					coroutine.resume(tpCoroutine)
 				end)
-			end)
+			end
 		end
 	end
 end
