@@ -285,7 +285,7 @@ local function setupCharacter(char)
 					end
 
 					-- Ждём 0.2 секунды и отключаем временно включенные Anchor и Noclip
-					task.wait(5)
+					task.wait(10)
 					if not anchorWasOn then
 						buttonStates.Anchor.Value = false
 						anchorOnly = false
