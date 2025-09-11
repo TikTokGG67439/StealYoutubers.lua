@@ -95,15 +95,15 @@ local function setupCharacter(char)
 	textbuttonframe.Position = UDim2.new(0, 50, 0, 300)
 	textbuttonframe.Draggable = true
 	textbuttonframe.Image = aidi
-	
+
 	local uibuttonframe = Instance.new("UICorner")
 	uibuttonframe.CornerRadius = UDim.new(4, 15)
 	uibuttonframe.Parent = textbuttonframe
-	
+
 	textbuttonframe.MouseButton1Click:Connect(function()
 		frame.Visible = not frame.Visible
 	end)
-	
+
 	local function makeLabel(text,pos)
 		local lbl = Instance.new("TextLabel")
 		lbl.Parent = frame
@@ -117,13 +117,14 @@ local function setupCharacter(char)
 		return lbl
 	end
 
-	makeLabel("Nova Hub", UDim2.new(0,30,0,0))
-	makeLabel("TT: @novahub57", UDim2.new(0,30,0,30))
+	makeLabel("Nova Hub", UDim2.new(0,40,0,0))
+	makeLabel("TT: @novahub57", UDim2.new(0,20,0,30))
+	makeLabel("If bag Reset", UDim2.new(0,30,0,50))
 
 	local uiframe = Instance.new("UICorner")
 	uiframe.CornerRadius = UDim.new(0,20)
 	uiframe.Parent = frame
-	
+
 	local uiStroke = Instance.new("UIStroke")
 	uiStroke.Thickness = 4
 	uiStroke.Color = Color3.fromRGB(211, 79, 35)
@@ -186,12 +187,12 @@ local function setupCharacter(char)
 	teleportBtn = createButton("Teleport OFF",UDim2.new(0,10,0,150),buttonStates.Teleport,function(state,btn)
 		teleportActive = state
 		if state then
-			btn.Text = "Teleport ON"
+			btn.Text = "InstantSteal ON"
 			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 		else
 			teleportTarget = nil
 			teleportProgress = 0
-			btn.Text = "Teleport OFF"
+			btn.Text = "InstantSteal OFF"
 			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 		end
 	end)
@@ -214,13 +215,13 @@ local function setupCharacter(char)
 
 	-- Forward Tp
 	createButton("Forward Tp wait While Update",UDim2.new(0,130,0,90),buttonStates.ForwardTp,function(state,btn)
-		btn.Text = state and "Forward Tp ON" or "Forward Tp OFF"
+		btn.Text = state and "Wait For Update" or "WaitForUpdate"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
 	-- Fast Speed
-	createButton("Maybe Fast Speed With Steal",UDim2.new(0,10,0,90),buttonStates.FastSpeedSteal,function(state,btn)
-		btn.Text = state and "Fast Speed ON" or "Fast Speed OFF"
+	createButton("Wait While Update",UDim2.new(0,10,0,90),buttonStates.FastSpeedSteal,function(state,btn)
+		btn.Text = state and "Wait For Update" or "Wait for update"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
@@ -236,7 +237,7 @@ local function setupCharacter(char)
 				teleportProgress = 0
 				buttonStates.Teleport.Value = false
 				if teleportBtn then
-					teleportBtn.Text = "Teleport OFF"
+					teleportBtn.Text = "InstantSteal OFF"
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 				end
 			end
@@ -257,7 +258,7 @@ local function setupCharacter(char)
 				teleportActive = true
 				buttonStates.Teleport.Value = true
 				if teleportBtn then
-					teleportBtn.Text = "Teleport ON"
+					teleportBtn.Text = "InstantSteal ON"
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
