@@ -72,7 +72,7 @@ local function setupCharacter(char)
 	local teleportActive = buttonStates.Teleport.Value
 	local teleportTarget = nil
 	local teleportProgress = 0
-	local teleportSteps = 30
+	local teleportSteps = 15
 	local gravityActive = speedMode
 
 	-- GUI
@@ -220,10 +220,6 @@ local function setupCharacter(char)
 		end
 	end)
 
-	-- Переменные для временного включения (можно оставить, но теперь не будем сбрасывать)
-	local tempAnchor = false
-	local tempNoclip = false
-
 	-- ProximityPrompt
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
@@ -232,7 +228,7 @@ local function setupCharacter(char)
 				if not tpPart then return end
 
 				-- Телепорт
-				local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
+				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
 				teleportTarget = tpPart.Position + offset
 				teleportProgress = 0
 				teleportActive = true
@@ -242,14 +238,17 @@ local function setupCharacter(char)
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Включаем Anchor/Noclip если они были выключены
-				if not buttonStates.Anchor.Value then
+				-- Сохраняем состояние Anchor и Noclip
+				local anchorWasOn = buttonStates.Anchor.Value
+				local noclipWasOn = buttonStates.Noclip.Value
+
+				-- Временно включаем Anchor и Noclip, если были выключены
+				if not anchorWasOn then
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
 					hrp.Anchored = true
 				end
-
-				if not buttonStates.Noclip.Value then
+				if not noclipWasOn then
 					buttonStates.Noclip.Value = true
 					for _, part in ipairs(char:GetDescendants()) do
 						if part:IsA("BasePart") then
@@ -270,30 +269,51 @@ local function setupCharacter(char)
 						end
 					end
 				end
+
+				-- Ждём завершения телепорта
+				spawn(function()
+					while teleportActive do
+						RunService.RenderStepped:Wait()
+					end
+
+					-- Выключаем Teleport
+					buttonStates.Teleport.Value = false
+					if teleportBtn then
+						teleportBtn.Text = "Teleport OFF"
+						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+					end
+
+					-- Ждём 0.2 секунды и выключаем временно включенные Anchor и Noclip
+					task.wait(0.2)
+					if not anchorWasOn then
+						buttonStates.Anchor.Value = false
+						anchorOnly = false
+						hrp.Anchored = false
+						for _, btn in ipairs(frame:GetChildren()) do
+							if btn:IsA("TextButton") and btn.Text:find("Anchor") then
+								btn.Text = "Anchor OFF"
+								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+							end
+						end
+					end
+					if not noclipWasOn then
+						buttonStates.Noclip.Value = false
+						for _, part in ipairs(char:GetDescendants()) do
+							if part:IsA("BasePart") then
+								part.CanCollide = true
+							end
+						end
+						for _, btn in ipairs(frame:GetChildren()) do
+							if btn:IsA("TextButton") and btn.Text:find("Noclip") then
+								btn.Text = "Off Noclip"
+								btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+							end
+						end
+					end
+				end)
 			end)
 		end
 	end
-
-	-- RenderStepped для плавного телепорта
-	RunService.RenderStepped:Connect(function(delta)
-		if teleportActive and teleportTarget then
-			teleportProgress += delta
-			local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps), 0, 1)
-			hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget, alpha))
-
-			if alpha >= 1 then
-				teleportActive = false
-				teleportTarget = nil
-				teleportProgress = 0
-
-				buttonStates.Teleport.Value = false
-				if teleportBtn then
-					teleportBtn.Text = "Teleport OFF"
-					teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-				end
-			end
-		end
-	end)
 end
 
 if player.Character then
