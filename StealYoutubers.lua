@@ -120,7 +120,7 @@ local function setupCharacter(char)
 		btn.Position = pos
 		btn.TextScaled = true
 		btn.Font = Enum.Font.Arcade
-		btn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+		btn.BackgroundColor3 = Color3.fromRGB(103, 103, 103)
 		btn.TextColor3 = Color3.new(0, 0, 0)
 		local uic = Instance.new("UICorner")
 		uic.CornerRadius = UDim.new(0, 8)
@@ -146,10 +146,10 @@ local function setupCharacter(char)
 		hrp.Anchored = state
 		if state then
 			btn.Text = "Anchor ON"
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+			btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
 		else
 			btn.Text = "Anchor OFF"
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+			btn.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		end
 	end)
 
@@ -160,26 +160,27 @@ local function setupCharacter(char)
 		gravityActive = state
 		if state then
 			btn.Text = "Speed ON"
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+			btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
 		else
 			btn.Text = "Speed OFF"
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+			btn.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		end
 	end)
 
 	-- Teleport
 	createButton("Teleport OFF", UDim2.new(0,10,0,150), buttonStates.Teleport, function(state, btn)
 		teleportActive = state
-		if not state then
+		if state then
+			btn.Text = "Teleport ON"
+			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+		else
 			teleportTarget = nil
 			teleportProgress = 0
 			btn.Text = "Teleport OFF"
 			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		else
-			btn.Text = "Teleport ON"
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 		end
 	end)
+
 
 	-- Noclip
 	createButton("On Noclip", UDim2.new(0,130,0,150), buttonStates.Noclip, function(state, btn)
@@ -194,10 +195,10 @@ local function setupCharacter(char)
 		end
 		if state then
 			btn.Text = "On Noclip"
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+			btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
 		else
 			btn.Text = "Off Noclip"
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+			btn.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		end
 	end)
 
@@ -205,18 +206,18 @@ local function setupCharacter(char)
 	-- Forward Tp wait While Update
 	createButton("Forward Tp wait While Update", UDim2.new(0,130,0,90), buttonStates.ForwardTp, function(state, btn)
 		if state then
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+			btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
 		else
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+			btn.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		end
 	end)
 
 	-- Maybe Fast Speed With Steal
 	createButton("Maybe Fast Speed With Steal", UDim2.new(0,10,0,90), buttonStates.FastSpeedSteal, function(state, btn)
 		if state then
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+			btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
 		else
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+			btn.BackgroundColor3 = Color3.fromRGB(103,103,103)
 		end
 	end)
 
@@ -231,7 +232,14 @@ local function setupCharacter(char)
 				teleportTarget = nil
 				teleportProgress = 0
 				buttonStates.Teleport.Value = false
+				-- Обновляем GUI текст
+				local btn = frame:FindFirstChild("Teleport OFF") or frame:FindFirstChildWhichIsA("TextButton") -- уточни имя
+				if btn then
+					btn.Text = "Teleport OFF"
+					btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+				end
 			end
+
 		end
 	end)
 
@@ -259,4 +267,5 @@ if player.Character then
 	setupCharacter(player.Character)
 end
 player.CharacterAdded:Connect(setupCharacter)
+
 
