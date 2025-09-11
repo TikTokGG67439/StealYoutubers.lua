@@ -238,11 +238,10 @@ local function setupCharacter(char)
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Проверяем состояние Anchor и Noclip
+				-- Anchor / Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
-				-- Временно включаем, если были выключены
 				if not anchorWasOn then
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
@@ -257,7 +256,7 @@ local function setupCharacter(char)
 					end
 				end
 
-				-- Обновляем тексты кнопок Anchor и Noclip
+				-- Обновляем тексты кнопок
 				for _, btn in ipairs(frame:GetChildren()) do
 					if btn:IsA("TextButton") then
 						if btn.Text:find("Anchor") then
@@ -271,10 +270,9 @@ local function setupCharacter(char)
 				end
 
 				-- Ждём завершения телепорта
-				local teleWait = RunService.RenderStepped:Wait()
 				spawn(function()
 					while teleportActive do
-						teleWait()
+						RunService.RenderStepped:Wait() -- ждём каждый кадр
 					end
 
 					-- Выключаем Teleport
@@ -284,8 +282,9 @@ local function setupCharacter(char)
 						teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- Ждём 0.2 секунды и отключаем временно включенные Anchor и Noclip
+					-- Ждём 10 секунд перед отключением Anchor / Noclip
 					task.wait(10)
+
 					if not anchorWasOn then
 						buttonStates.Anchor.Value = false
 						anchorOnly = false
@@ -297,6 +296,7 @@ local function setupCharacter(char)
 							end
 						end
 					end
+
 					if not noclipWasOn then
 						buttonStates.Noclip.Value = false
 						for _, part in ipairs(char:GetDescendants()) do
@@ -321,4 +321,3 @@ if player.Character then
 	setupCharacter(player.Character)
 end
 player.CharacterAdded:Connect(setupCharacter)
-
