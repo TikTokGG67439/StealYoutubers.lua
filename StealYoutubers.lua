@@ -220,8 +220,7 @@ local function setupCharacter(char)
 		end
 	end)
 
-	-- ProximityPrompt
-	-- Переменные для временного включения
+	-- Переменные для временного включения (можно оставить, но теперь не будем сбрасывать)
 	local tempAnchor = false
 	local tempNoclip = false
 
@@ -243,17 +242,14 @@ local function setupCharacter(char)
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 
-				-- Anchor/Noclip временно
-				tempAnchor = not buttonStates.Anchor.Value
-				tempNoclip = not buttonStates.Noclip.Value
-
-				if tempAnchor then
+				-- Включаем Anchor/Noclip если они были выключены
+				if not buttonStates.Anchor.Value then
 					buttonStates.Anchor.Value = true
 					anchorOnly = true
 					hrp.Anchored = true
 				end
 
-				if tempNoclip then
+				if not buttonStates.Noclip.Value then
 					buttonStates.Noclip.Value = true
 					for _, part in ipairs(char:GetDescendants()) do
 						if part:IsA("BasePart") then
@@ -294,39 +290,6 @@ local function setupCharacter(char)
 				if teleportBtn then
 					teleportBtn.Text = "Teleport OFF"
 					teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-				end
-
-				-- Отложенное отключение временно включённых Anchor и Noclip
-				if tempAnchor or tempNoclip then
-					task.delay(0.2, function()
-						if tempAnchor then
-							buttonStates.Anchor.Value = false
-							anchorOnly = false
-							hrp.Anchored = false
-							for _, btn in ipairs(frame:GetChildren()) do
-								if btn:IsA("TextButton") and btn.Text:find("Anchor") then
-									btn.Text = "Anchor OFF"
-									btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-								end
-							end
-						end
-						if tempNoclip then
-							buttonStates.Noclip.Value = false
-							for _, part in ipairs(char:GetDescendants()) do
-								if part:IsA("BasePart") then
-									part.CanCollide = true
-								end
-							end
-							for _, btn in ipairs(frame:GetChildren()) do
-								if btn:IsA("TextButton") and btn.Text:find("Noclip") then
-									btn.Text = "Off Noclip"
-									btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-								end
-							end
-						end
-						tempAnchor = false
-						tempNoclip = false
-					end)
 				end
 			end
 		end
