@@ -221,21 +221,32 @@ local function setupCharacter(char)
 	end)
 
 	-- ProximityPrompt
-	for _,prompt in ipairs(workspace:GetDescendants()) do
+	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			prompt.Triggered:Connect(function()
-				if teleportActive then
+				local tpPart = getPlayerPlotTpPart()
+				if tpPart then
+					-- Телепорт
+					local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
+					teleportTarget = tpPart.Position + offset
 					teleportProgress = 0
-					local tpPart = getPlayerPlotTpPart()
-					if tpPart then
-						local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
-						teleportTarget = tpPart.Position + offset
-					else
-						teleportActive = false
-						buttonStates.Teleport.Value = false
-						if teleportBtn then
-							teleportBtn.Text = "Teleport OFF"
-							teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+					teleportActive = true
+					buttonStates.Teleport.Value = true
+					if teleportBtn then
+						teleportBtn.Text = "Teleport ON"
+						teleportBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+					end
+
+					-- Автоматически включаем Anchored
+					buttonStates.Anchor.Value = true
+					anchorOnly = true
+					hrp.Anchored = true
+
+					-- Обновляем текст кнопки Anchor
+					for _, btn in ipairs(frame:GetChildren()) do
+						if btn:IsA("TextButton") and btn.Text:find("Anchor") then
+							btn.Text = "Anchor ON"
+							btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 						end
 					end
 				end
