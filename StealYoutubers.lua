@@ -31,7 +31,6 @@ local function getOrCreateButtonStates()
 		noclipBV.Value = false
 		noclipBV.Parent = states
 
-		-- Кнопки 5 и 6
 		local forwardTpBV = Instance.new("BoolValue")
 		forwardTpBV.Name = "ForwardTp"
 		forwardTpBV.Value = false
@@ -68,14 +67,12 @@ local function setupCharacter(char)
 	local humanoid = char:WaitForChild("Humanoid")
 	local originalSpeed = humanoid.WalkSpeed
 
-	-- Состояния кнопок
 	local anchorOnly = buttonStates.Anchor.Value
 	local speedMode = buttonStates.Speed.Value
 	local teleportActive = buttonStates.Teleport.Value
 	local teleportTarget = nil
 	local teleportProgress = 0
 	local teleportSteps = 15
-
 	local gravityActive = speedMode
 
 	-- GUI
@@ -89,59 +86,53 @@ local function setupCharacter(char)
 	frame.Active = true
 	frame.Draggable = true
 
-	local textLabel1 = Instance.new("TextLabel")
-	textLabel1.Parent = frame
-	textLabel1.TextScaled = true
-	textLabel1.Font = Enum.Font.Arcade
-	textLabel1.Text = "Saint Hub"
-	textLabel1.Size = UDim2.new(0, 200, 0, 50)
-	textLabel1.Position = UDim2.new(0, 30, 0, 0)
-	textLabel1.TextColor3 = Color3.fromRGB(161, 163, 62)
-	textLabel1.BackgroundTransparency = 1
+	local function makeLabel(text,pos)
+		local lbl = Instance.new("TextLabel")
+		lbl.Parent = frame
+		lbl.Text = text
+		lbl.TextScaled = true
+		lbl.Font = Enum.Font.Arcade
+		lbl.Size = UDim2.new(0, 200, 0, 50)
+		lbl.Position = pos
+		lbl.TextColor3 = Color3.fromRGB(161,163,62)
+		lbl.BackgroundTransparency = 1
+		return lbl
+	end
 
-	local textLabel2 = Instance.new("TextLabel")
-	textLabel2.Parent = frame
-	textLabel2.TextScaled = true
-	textLabel2.Font = Enum.Font.Arcade
-	textLabel2.Text = "TT: @GG67439"
-	textLabel2.Size = UDim2.new(0, 200, 0, 50)
-	textLabel2.Position = UDim2.new(0, 30, 0, 30)
-	textLabel2.TextColor3 = Color3.fromRGB(161, 163, 62)
-	textLabel2.BackgroundTransparency = 1
+	makeLabel("Saint Hub", UDim2.new(0,30,0,0))
+	makeLabel("TT: @GG67439", UDim2.new(0,30,0,30))
 
 	local uiframe = Instance.new("UICorner")
-	uiframe.CornerRadius = UDim.new(0, 20)
+	uiframe.CornerRadius = UDim.new(0,20)
 	uiframe.Parent = frame
 
 	-- Функция создания кнопки
-	local function createButton(text, pos, bv, callback)
-		local btn = Instance.new("TextButton", frame)
-		btn.Size = UDim2.new(0, 113, 0, 50)
+	local function createButton(name,pos,bv,onChange)
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0,113,0,50)
 		btn.Position = pos
 		btn.TextScaled = true
 		btn.Font = Enum.Font.Arcade
-		btn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-		btn.TextColor3 = Color3.new(0, 0, 0)
+		btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+		btn.TextColor3 = Color3.new(0,0,0)
+		btn.Parent = frame
 		local uic = Instance.new("UICorner")
-		uic.CornerRadius = UDim.new(0, 8)
+		uic.CornerRadius = UDim.new(0,8)
 		uic.Parent = btn
 
-		-- Восстанавливаем текст/цвет по состоянию
-		if bv.Value then
-			callback(true, btn)
-		else
-			callback(false, btn)
-		end
+		-- Устанавливаем изначальное состояние кнопки
+		onChange(bv.Value,btn)
 
 		btn.MouseButton1Click:Connect(function()
 			bv.Value = not bv.Value
-			callback(bv.Value, btn)
+			onChange(bv.Value,btn)
 		end)
+
 		return btn
 	end
 
 	-- Anchor
-	createButton("Anchor OFF", UDim2.new(0,10,0,212), buttonStates.Anchor, function(state, btn)
+	createButton("Anchor OFF",UDim2.new(0,10,0,212),buttonStates.Anchor,function(state,btn)
 		anchorOnly = state
 		hrp.Anchored = state
 		if state then
@@ -154,7 +145,7 @@ local function setupCharacter(char)
 	end)
 
 	-- Speed
-	createButton("Speed OFF", UDim2.new(0,130,0,212), buttonStates.Speed, function(state, btn)
+	createButton("Speed OFF",UDim2.new(0,130,0,212),buttonStates.Speed,function(state,btn)
 		speedMode = state
 		humanoid.WalkSpeed = state and originalSpeed + 20 or originalSpeed
 		gravityActive = state
@@ -168,26 +159,23 @@ local function setupCharacter(char)
 	end)
 
 	-- Teleport
-	createButton("Teleport OFF", UDim2.new(0,10,0,150), buttonStates.Teleport, function(state, btn)
+	local teleportBtn
+	teleportBtn = createButton("Teleport OFF",UDim2.new(0,10,0,150),buttonStates.Teleport,function(state,btn)
 		teleportActive = state
-		if not state then
+		if state then
+			btn.Text = "Teleport ON"
+			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+		else
 			teleportTarget = nil
 			teleportProgress = 0
 			btn.Text = "Teleport OFF"
 			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		else
-			btn.Text = "Teleport ON"
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 		end
 	end)
 
 	-- Noclip
-	createButton("On Noclip", UDim2.new(0,130,0,150), buttonStates.Noclip, function(state, btn)
-		local char = player.Character
-		if not char then return end
-		local hpr = char:FindFirstChild("HumanoidRootPart")
-		if not hpr then return end
-		for _, part in ipairs(char:GetDescendants()) do
+	createButton("On Noclip",UDim2.new(0,130,0,150),buttonStates.Noclip,function(state,btn)
+		for _,part in ipairs(char:GetDescendants()) do
 			if part:IsA("BasePart") then
 				part.CanCollide = not state
 			end
@@ -201,42 +189,39 @@ local function setupCharacter(char)
 		end
 	end)
 
-	-- Кнопки 5 и 6 можно аналогично добавить сюда, сохраняя состояния
-	-- Forward Tp wait While Update
-	createButton("Forward Tp wait While Update", UDim2.new(0,130,0,90), buttonStates.ForwardTp, function(state, btn)
-		if state then
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		else
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		end
+	-- Forward Tp
+	createButton("Forward Tp wait While Update",UDim2.new(0,130,0,90),buttonStates.ForwardTp,function(state,btn)
+		btn.Text = state and "Forward Tp ON" or "Forward Tp OFF"
+		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
-	-- Maybe Fast Speed With Steal
-	createButton("Maybe Fast Speed With Steal", UDim2.new(0,10,0,90), buttonStates.FastSpeedSteal, function(state, btn)
-		if state then
-			btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		else
-			btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		end
+	-- Fast Speed
+	createButton("Maybe Fast Speed With Steal",UDim2.new(0,10,0,90),buttonStates.FastSpeedSteal,function(state,btn)
+		btn.Text = state and "Fast Speed ON" or "Fast Speed OFF"
+		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
 	-- RenderStepped для плавного телепорта
 	RunService.RenderStepped:Connect(function(delta)
 		if teleportActive and teleportTarget then
-			teleportProgress = teleportProgress + delta
-			local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps), 0, 1)
-			hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget, alpha))
+			teleportProgress += delta
+			local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps),0,1)
+			hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget,alpha))
 			if alpha >= 1 then
 				teleportActive = false
 				teleportTarget = nil
 				teleportProgress = 0
 				buttonStates.Teleport.Value = false
+				if teleportBtn then
+					teleportBtn.Text = "Teleport OFF"
+					teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+				end
 			end
 		end
 	end)
 
 	-- ProximityPrompt
-	for _, prompt in ipairs(workspace:GetDescendants()) do
+	for _,prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			prompt.Triggered:Connect(function()
 				if teleportActive then
@@ -248,6 +233,10 @@ local function setupCharacter(char)
 					else
 						teleportActive = false
 						buttonStates.Teleport.Value = false
+						if teleportBtn then
+							teleportBtn.Text = "Teleport OFF"
+							teleportBtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+						end
 					end
 				end
 			end)
@@ -259,4 +248,3 @@ if player.Character then
 	setupCharacter(player.Character)
 end
 player.CharacterAdded:Connect(setupCharacter)
-
