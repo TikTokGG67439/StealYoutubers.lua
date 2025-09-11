@@ -7,7 +7,6 @@ local TpPartName = "MultiplierPart"
 local State = {
 	anchorOnly = false,
 	speedMode = false,
-	gravityActive = false,
 	teleportActive = false,
 	teleportTarget = nil,
 	teleportProgress = 0,
@@ -15,17 +14,19 @@ local State = {
 	noclip = false,
 	originalSpeed = 16,
 	humanoid = nil,
-	hrp = nil
+	hrp = nil,
+	speedConn = nil,
+	btnConnections = {}
 }
 
--- ===== GUI (создаём один раз) =====
+-- ===== GUI =====
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AnchoredGUI")
 local btn1, btn2, btn3, btn4, btn5, btn6
 
 if not screenGui then
 	screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "AnchoredGUI"
-	screenGui.ResetOnSpawn = false -- 🔑 сохраняем GUI
+	screenGui.ResetOnSpawn = false
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
 	local frame = Instance.new("Frame")
@@ -75,7 +76,7 @@ if not screenGui then
 	btn1 = createButton("Anchor OFF", UDim2.new(0,10,0,212))
 	btn2 = createButton("Speed OFF", UDim2.new(0,130,0,212))
 	btn3 = createButton("Teleport OFF", UDim2.new(0,10,0,150))
-	btn4 = createButton("On Noclip", UDim2.new(0,130,0,150))
+	btn4 = createButton("Off Noclip", UDim2.new(0,130,0,150))
 	btn5 = createButton("Forward Tp wait While Update", UDim2.new(0,130,0,90))
 	btn6 = createButton("Maybe Fast Speed With Steal", UDim2.new(0,10,0,90))
 end
@@ -96,120 +97,128 @@ local function getPlayerPlotTpPart()
 	return nil
 end
 
--- ===== Настройка персонажа =====
-local function setupCharacter(char)
+-- ===== Применение состояний =====
+local function applyStates(char)
 	local hrp = char:WaitForChild("HumanoidRootPart")
 	local humanoid = char:WaitForChild("Humanoid")
 	State.hrp = hrp
 	State.humanoid = humanoid
 	State.originalSpeed = humanoid.WalkSpeed
 
-	-- Применяем сохранённые состояния
 	hrp.Anchored = State.anchorOnly
-	humanoid.WalkSpeed = State.speedMode and State.originalSpeed + 60 or State.originalSpeed
-	if State.noclip then
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then part.CanCollide = false end
+	btn1.Text = State.anchorOnly and "Anchor ON" or "Anchor OFF"
+	btn1.BackgroundColor3 = State.anchorOnly and Color3.fromRGB(50,50,50) or Color3.fromRGB(103,103,103)
+
+	humanoid.WalkSpeed = State.speedMode and (State.originalSpeed + 50) or State.originalSpeed
+	btn2.Text = State.speedMode and "Speed ON" or "Speed OFF"
+	btn2.BackgroundColor3 = State.speedMode and Color3.fromRGB(30,30,30) or Color3.fromRGB(103,103,103)
+
+	for _, part in ipairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = not State.noclip
 		end
 	end
+	btn4.Text = State.noclip and "On Noclip" or "Off Noclip"
+	btn4.BackgroundColor3 = State.noclip and Color3.fromRGB(30,30,30) or Color3.fromRGB(103,103,103)
+end
 
-	-- ===== Anchor =====
-	btn1.MouseButton1Click:Connect(function()
+-- ===== Подключение кнопок =====
+local function connectButtons(char)
+	for _, conn in pairs(State.btnConnections) do
+		conn:Disconnect()
+	end
+	State.btnConnections = {}
+
+	-- Anchor
+	table.insert(State.btnConnections, btn1.MouseButton1Click:Connect(function()
 		State.anchorOnly = not State.anchorOnly
-		hrp.Anchored = State.anchorOnly
-		if State.anchorOnly then
-			btn1.Text = "Anchor ON"
-			btn1.BackgroundColor3 = Color3.fromRGB(50,50,50)
-		else
-			btn1.Text = "Anchor OFF"
-			btn1.BackgroundColor3 = Color3.fromRGB(103,103,103)
-		end
-	end)
+		if State.hrp then State.hrp.Anchored = State.anchorOnly end
+		btn1.Text = State.anchorOnly and "Anchor ON" or "Anchor OFF"
+		btn1.BackgroundColor3 = State.anchorOnly and Color3.fromRGB(50,50,50) or Color3.fromRGB(103,103,103)
+	end))
 
-	-- ===== Speed =====
-	btn2.MouseButton1Click:Connect(function()
+	-- Speed
+	table.insert(State.btnConnections, btn2.MouseButton1Click:Connect(function()
 		State.speedMode = not State.speedMode
+		if State.speedConn then State.speedConn:Disconnect() State.speedConn = nil end
 		if State.speedMode then
-			btn2.Text = "Speed ON"
-			btn2.BackgroundColor3 = Color3.fromRGB(30,30,30)
-			humanoid.WalkSpeed = State.originalSpeed + 20
+			State.humanoid.WalkSpeed = State.originalSpeed + 50
 		else
-			btn2.Text = "Speed OFF"
-			btn2.BackgroundColor3 = Color3.fromRGB(103,103,103)
-			humanoid.WalkSpeed = State.originalSpeed
+			State.humanoid.WalkSpeed = State.originalSpeed
 		end
-	end)
+		btn2.Text = State.speedMode and "Speed ON" or "Speed OFF"
+		btn2.BackgroundColor3 = State.speedMode and Color3.fromRGB(30,30,30) or Color3.fromRGB(103,103,103)
+	end))
 
-	-- ===== Teleport =====
-	btn3.MouseButton1Click:Connect(function()
+	-- Teleport
+	table.insert(State.btnConnections, btn3.MouseButton1Click:Connect(function()
 		State.teleportActive = not State.teleportActive
-		if not State.teleportActive then
-			State.teleportTarget = nil
-			State.teleportProgress = 0
-			btn3.Text = "Teleport OFF"
-			btn3.BackgroundColor3 = Color3.fromRGB(103,103,103)
-		else
-			btn3.Text = "Teleport ON"
-			btn3.BackgroundColor3 = Color3.fromRGB(30,30,30)
-		end
-	end)
+		btn3.Text = State.teleportActive and "Teleport ON" or "Teleport OFF"
+		btn3.BackgroundColor3 = State.teleportActive and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
+	end))
 
-	-- ===== Noclip =====
-	btn4.MouseButton1Click:Connect(function()
+	-- Noclip
+	table.insert(State.btnConnections, btn4.MouseButton1Click:Connect(function()
 		State.noclip = not State.noclip
 		for _, part in ipairs(char:GetDescendants()) do
 			if part:IsA("BasePart") then
 				part.CanCollide = not State.noclip
 			end
 		end
-		if State.noclip then
-			btn4.Text = "On Noclip"
-			btn4.BackgroundColor3 = Color3.fromRGB(30,30,30)
-		else
-			btn4.Text = "Off Noclip"
-			btn4.BackgroundColor3 = Color3.fromRGB(103,103,103)
+		btn4.Text = State.noclip and "On Noclip" or "Off Noclip"
+		btn4.BackgroundColor3 = State.noclip and Color3.fromRGB(30,30,30) or Color3.fromRGB(103,103,103)
+	end))
+
+	-- btn5 и btn6 заглушки
+	table.insert(State.btnConnections, btn5.MouseButton1Click:Connect(function()
+		print("btn5 clicked — логика вперед/телепорт пока не реализована")
+	end))
+	table.insert(State.btnConnections, btn6.MouseButton1Click:Connect(function()
+		print("btn6 clicked — логика Fast Speed пока не реализована")
+	end))
+end
+
+-- ===== Настройка персонажа =====
+local function setupCharacter(char)
+	if State.speedConn then
+		State.speedConn:Disconnect()
+		State.speedConn = nil
+	end
+	applyStates(char)
+	connectButtons(char)
+end
+
+-- ===== ProximityPrompt Teleport =====
+local function setupProximityTeleport()
+	local tpPart = getPlayerPlotTpPart()
+	if not tpPart then return end
+
+	local prompt = tpPart:FindFirstChildOfClass("ProximityPrompt")
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = "Teleport"
+		prompt.ObjectText = "Plot"
+		prompt.RequiresLineOfSight = false
+		prompt.MaxActivationDistance = 10
+		prompt.Parent = tpPart
+	end
+
+	prompt.Triggered:Connect(function(plr)
+		if plr ~= player then return end
+		if State.teleportActive and State.hrp then
+			wait(0.2) -- задержка 0.2 секунды
+			State.hrp.CFrame = tpPart.CFrame + Vector3.new(0,3,0)
 		end
 	end)
 end
 
--- ===== RenderStepped для плавного телепорта =====
-RunService.RenderStepped:Connect(function(delta)
-	if State.teleportActive and State.teleportTarget and State.hrp then
-		State.teleportProgress = State.teleportProgress + delta
-		local alpha = math.clamp(State.teleportProgress / (0.05 * State.teleportSteps), 0, 1)
-		State.hrp.CFrame = CFrame.new(State.hrp.Position:Lerp(State.teleportTarget, alpha))
-		if alpha >= 1 then
-			State.teleportActive = false
-			State.teleportTarget = nil
-			State.teleportProgress = 0
-			btn3.Text = "Teleport OFF"
-			btn3.BackgroundColor3 = Color3.fromRGB(255,0,0)
-		end
+-- ===== RenderStepped для проверки ProximityPrompt =====
+RunService.RenderStepped:Connect(function()
+	if State.teleportActive then
+		setupProximityTeleport()
 	end
 end)
 
--- ===== ProximityPrompt =====
-for _, prompt in ipairs(workspace:GetDescendants()) do
-	if prompt:IsA("ProximityPrompt") then
-		prompt.Triggered:Connect(function()
-			if State.teleportActive then
-				State.teleportProgress = 0
-				local tpPart = getPlayerPlotTpPart()
-				if tpPart then
-					local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
-					State.teleportTarget = tpPart.Position + offset
-				else
-					State.teleportActive = false
-					btn3.Text = "Teleport OFF"
-					btn3.BackgroundColor3 = Color3.fromRGB(255,0,0)
-				end
-			end
-		end)
-	end
-end
-
 -- ===== Подключаем персонаж =====
-if player.Character then
-	setupCharacter(player.Character)
-end
+if player.Character then setupCharacter(player.Character) end
 player.CharacterAdded:Connect(setupCharacter)
