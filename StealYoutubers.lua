@@ -256,7 +256,7 @@ local function createNovaGUI(character)
 
 	-- Forward Tp
 	createButton("ForwardTpBtn", UDim2.new(0,130,0,90), buttonStates.ForwardTp, function(state, btn)
-		btn.Text = state and "Wait For Update" or "WaitForUpdate"
+		btn.Text = state and "Byppas Noclip off" or "Byppas Noclip on"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
@@ -385,7 +385,7 @@ local function createNovaGUI(character)
 								tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
 							end
 
-							task.wait(5)
+							task.wait(8)
 
 							-- Восстанавливаем Anchor/Noclip
 							if root and not anchorWasOn then
