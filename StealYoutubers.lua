@@ -1,45 +1,19 @@
--- Unified Anchor + Nova GUI (LocalScript)
--- Поддерживает: Anchor GUI (GUI1) + Nova GUI (GUI2)
--- Исправляет: InstantSteal срабатывает только при включенной кнопке,
--- временное включение Anchor/Noclip и восстановление, одиночные подписки на ProximityPrompt,
--- синхронизация GUI <-> BoolValues, FastSpeedSteal управляет видимостью GUI1.
-
+-- Unified Anchor + Nova GUI + InstantSteal fix (LocalScript)
+-- Помещать как LocalScript в StarterPlayerScripts / PlayerScripts
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
+if not player then return end
 
--- Helper: ensure character present
-local function waitCharacter()
-	return player.Character or player.CharacterAdded:Wait()
-end
-
--- Create / get ButtonStates folder with BoolValues
-local function getOrCreateButtonStates()
-	local states = player:FindFirstChild("ButtonStates")
-	if not states then
-		states = Instance.new("Folder")
-		states.Name = "ButtonStates"
-		states.Parent = player
-		for _, name in ipairs({"Anchor","Speed","Teleport","Noclip","ForwardTp","FastSpeedSteal"}) do
-			local b = Instance.new("BoolValue")
-			b.Name = name
-			b.Value = false
-			b.Parent = states
-		end
-	end
-	return states
-end
-local buttonStates = getOrCreateButtonStates()
-
--- Local references to current character parts (refreshed on respawn)
-local char = waitCharacter()
+-- Ensure character exists
+local char = player.Character or player.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local root = char:WaitForChild("HumanoidRootPart")
 
--- Anchor GUI (GUI1) variables
+-- CONFIG / STATE
 local anchorEnabled = false
 local vertControl = 0
 local flySpeed = 20
@@ -47,16 +21,32 @@ local storedWalkSpeed, storedJumpPower = hum.WalkSpeed, hum.JumpPower
 local targetPos = root.Position
 local toggleKey, tpKey = Enum.KeyCode.F, Enum.KeyCode.T
 
--- ---- GUI1 (Anchor) creation ----
--- remove previous if exist (safety)
-local existingGui1 = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("AnchorGUI")
-if existingGui1 then existingGui1:Destroy() end
+-- ButtonStates folder (persistent BoolValues)
+local function getOrCreateButtonStates()
+    local states = player:FindFirstChild("ButtonStates")
+    if not states then
+        states = Instance.new("Folder")
+        states.Name = "ButtonStates"
+        states.Parent = player
 
+        local names = {"Anchor","Speed","Teleport","Noclip","ForwardTp","FastSpeedSteal"}
+        for _,n in ipairs(names) do
+            local bv = Instance.new("BoolValue")
+            bv.Name = n
+            bv.Value = false
+            bv.Parent = states
+        end
+    end
+    return states
+end
+local buttonStates = getOrCreateButtonStates()
+
+-- ---------------- GUI1: Anchor panel ----------------
 local gui1 = Instance.new("ScreenGui")
 gui1.Name = "AnchorGUI"
 gui1.ResetOnSpawn = false
 gui1.Parent = player:WaitForChild("PlayerGui")
--- GUI1 visibility controlled by FastSpeedSteal BoolValue
+-- visibility controlled by FastSpeedSteal BoolValue
 gui1.Enabled = buttonStates.FastSpeedSteal.Value
 
 local frame1 = Instance.new("Frame", gui1)
@@ -65,83 +55,75 @@ frame1.Position = UDim2.new(0.5,-350,0.5,-150)
 frame1.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame1.Active = true
 frame1.Draggable = true
-Instance.new("UICorner", frame1).CornerRadius = UDim.new(0,10)
-local _ = Instance.new("UIStroke", frame1); _.Thickness = 3; _.Color = Color3.fromRGB(255,149,57)
+local _ = Instance.new("UICorner", frame1); _.CornerRadius = UDim.new(0,10)
+local __ = Instance.new("UIStroke", frame1); __.Color = Color3.fromRGB(255,149,57); __.Thickness = 3
 
 local function makeBtn1(pos, size, txt, parent)
-	local b = Instance.new("TextButton")
-	b.Parent = parent or frame1
-	b.Size = size; b.Position = pos; b.Text = txt
-	b.BackgroundColor3 = Color3.fromRGB(28,28,28); b.BackgroundTransparency = 0.15; b.TextColor3 = Color3.new(1,1,1)
-	b.Font = Enum.Font.Arcade; b.TextScaled = true
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0,10)
-	local s = Instance.new("UIStroke", b); s.Thickness = 2; s.Color = Color3.fromRGB(11,165,207)
-	return b
+    parent = parent or frame1
+    local b = Instance.new("TextButton", parent)
+    b.Size = size
+    b.Position = pos
+    b.Text = txt
+    b.BackgroundColor3 = Color3.fromRGB(28,28,28)
+    b.BackgroundTransparency = 0.15
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.Arcade
+    b.TextScaled = true
+    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0,10)
+    local s = Instance.new("UIStroke", b); s.Thickness = 2; s.Color = Color3.fromRGB(11,165,207)
+    return b
 end
 
-local mainBtn = makeBtn1(UDim2.new(0,18,0,18), UDim2.new(0,180,0,42), "Anchor: OFF", frame1)
-local upBtn = makeBtn1(UDim2.new(0,200,0,18), UDim2.new(0,40,0,42), "▲", frame1); upBtn.Visible = false
-local downBtn = makeBtn1(UDim2.new(0,245,0,18), UDim2.new(0,40,0,42), "▼", frame1); downBtn.Visible = false
-local tpBtn = makeBtn1(UDim2.new(0,290,0,18), UDim2.new(0,60,0,42), "Tp", frame1); tpBtn.Visible = false
+local mainBtn = makeBtn1(UDim2.new(0,18,0,18), UDim2.new(0,180,0,42), "Anchor: OFF")
+local upBtn = makeBtn1(UDim2.new(0,200,0,18), UDim2.new(0,40,0,42), "▲"); upBtn.Visible = false
+local downBtn = makeBtn1(UDim2.new(0,245,0,18), UDim2.new(0,40,0,42), "▼"); downBtn.Visible = false
+local tpBtn = makeBtn1(UDim2.new(0,290,0,18), UDim2.new(0,60,0,42), "Tp"); tpBtn.Visible = false
 
 local toggleBox = Instance.new("TextBox", frame1)
-toggleBox.Size, toggleBox.Position, toggleBox.Text = UDim2.new(0,60,0,20), UDim2.new(0,16,0,60), "F"
+toggleBox.Size = UDim2.new(0,60,0,20); toggleBox.Position = UDim2.new(0,16,0,60); toggleBox.Text = "F"
 toggleBox.Font = Enum.Font.Arcade; toggleBox.TextScaled = true
 local tpBox = Instance.new("TextBox", frame1)
-tpBox.Size, tpBox.Position, tpBox.Text = UDim2.new(0,60,0,20), UDim2.new(0,80,0,60), "T"
+tpBox.Size = UDim2.new(0,60,0,20); tpBox.Position = UDim2.new(0,80,0,60); tpBox.Text = "T"
 tpBox.Font = Enum.Font.Arcade; tpBox.TextScaled = true
 
-local function parseKeyBox(box, which)
-	box.FocusLost:Connect(function()
-		local s = tostring(box.Text or ""):upper()
-		local k = Enum.KeyCode[s]
-		if k then
-			if which == "toggle" then toggleKey = k end
-			if which == "tp" then tpKey = k end
-		end
-	end)
+local function parseKeyFromBox(box, assignTo)
+    box.FocusLost:Connect(function()
+        local s = (box.Text or ""):upper()
+        local k = Enum.KeyCode[s]
+        if k then
+            if assignTo == "toggle" then toggleKey = k end
+            if assignTo == "tp" then tpKey = k end
+        end
+    end)
 end
-parseKeyBox(toggleBox, "toggle")
-parseKeyBox(tpBox, "tp")
+parseKeyFromBox(toggleBox, "toggle")
+parseKeyFromBox(tpBox, "tp")
 
--- set anchor state (updates both GUI1 and ButtonStates.Anchor)
-local function setAnchor(state)
-	anchorEnabled = state
-	if anchorEnabled then
-		storedWalkSpeed, storedJumpPower = hum.WalkSpeed, hum.JumpPower
-		hum.WalkSpeed, hum.JumpPower = 0, 0
-		mainBtn.Text = "Anchor: ON"
-		upBtn.Visible, downBtn.Visible, tpBtn.Visible = true, true, true
-		targetPos = (root and root.Position) or targetPos
-	else
-		hum.WalkSpeed, hum.JumpPower = storedWalkSpeed or 16, storedJumpPower or 50
-		mainBtn.Text = "Anchor: OFF"
-		upBtn.Visible, downBtn.Visible, tpBtn.Visible = false, false, false
-		vertControl = 0
-	end
-	-- sync BoolValue if necessary
-	if buttonStates.Anchor.Value ~= state then
-		buttonStates.Anchor.Value = state
-	end
+-- Anchor GUI functions
+local function setAnchorState(state)
+    anchorEnabled = state
+    if anchorEnabled then
+        storedWalkSpeed, storedJumpPower = hum.WalkSpeed, hum.JumpPower
+        hum.WalkSpeed, hum.JumpPower = 0, 0
+        mainBtn.Text = "Anchor: ON"
+        upBtn.Visible, downBtn.Visible, tpBtn.Visible = true, true, true
+        targetPos = root and root.Position or targetPos
+    else
+        hum.WalkSpeed, hum.JumpPower = storedWalkSpeed or 16, storedJumpPower or 50
+        mainBtn.Text = "Anchor: OFF"
+        upBtn.Visible, downBtn.Visible, tpBtn.Visible = false, false, false
+        vertControl = 0
+    end
 end
 
--- respond to external bool changes for Anchor
-buttonStates.Anchor.Changed:Connect(function(new)
-	-- avoid double-work when setAnchor already wrote the same value: still safe
-	setAnchor(new)
-end)
-
-mainBtn.MouseButton1Click:Connect(function()
-	setAnchor(not anchorEnabled)
-end)
-
+mainBtn.MouseButton1Click:Connect(function() setAnchorState(not anchorEnabled) end)
 tpBtn.MouseButton1Click:Connect(function()
-	if anchorEnabled and root then
-		local cam = Workspace.CurrentCamera
-		local look = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
-		targetPos = targetPos + look * 7
-		root.CFrame = CFrame.new(targetPos, targetPos + look)
-	end
+    if anchorEnabled and root then
+        local cam = Workspace.CurrentCamera
+        local look = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
+        targetPos = targetPos + look * 7
+        root.CFrame = CFrame.new(targetPos, targetPos + look)
+    end
 end)
 
 upBtn.MouseButton1Down:Connect(function() vertControl = 1 end)
@@ -150,292 +132,300 @@ downBtn.MouseButton1Down:Connect(function() vertControl = -1 end)
 downBtn.MouseButton1Up:Connect(function() vertControl = 0 end)
 
 UIS.InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if input.KeyCode == toggleKey then setAnchor(not anchorEnabled)
-	elseif input.KeyCode == tpKey and anchorEnabled then
-		local cam = Workspace.CurrentCamera
-		local look = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
-		targetPos = targetPos + look * 7
-		root.CFrame = CFrame.new(targetPos, targetPos + look)
-	elseif input.KeyCode == Enum.KeyCode.Space and anchorEnabled then
-		vertControl = 1
-	elseif input.KeyCode == Enum.KeyCode.LeftShift and anchorEnabled then
-		vertControl = -1
-	end
+    if processed then return end
+    if input.KeyCode == toggleKey then setAnchorState(not anchorEnabled)
+    elseif input.KeyCode == tpKey and anchorEnabled then
+        local cam = Workspace.CurrentCamera
+        local look = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
+        targetPos = targetPos + look * 7
+        root.CFrame = CFrame.new(targetPos, targetPos + look)
+    elseif input.KeyCode == Enum.KeyCode.Space and anchorEnabled then
+        vertControl = 1
+    elseif input.KeyCode == Enum.KeyCode.LeftShift and anchorEnabled then
+        vertControl = -1
+    end
 end)
 UIS.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftShift then vertControl = 0 end
+    if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftShift then vertControl = 0 end
 end)
 
--- FastSpeedSteal controls GUI1 visibility and kept synced
-buttonStates.FastSpeedSteal.Changed:Connect(function(n)
-	gui1.Enabled = n
+-- keep gui1 enabled according to FastSpeedSteal
+buttonStates.FastSpeedSteal.Changed:Connect(function(new)
+    gui1.Enabled = new
 end)
+-- initialize
 gui1.Enabled = buttonStates.FastSpeedSteal.Value
 
--- ---- GUI2 (Nova) ----
--- Remove old GUI2 if exists (safety)
-local existingGui2 = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("NovaGUI")
-if existingGui2 then existingGui2:Destroy() end
+-- ---------------- GUI2: Nova GUI ----------------
+local function setupNovaGUI(character)
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    local originalSpeed = humanoid.WalkSpeed
 
--- We'll keep references to GUI2 buttons so prompt handler can update them directly
-local gui2Buttons = {}
+    local gui2 = Instance.new("ScreenGui")
+    gui2.Name = "NovaGUI"
+    gui2.ResetOnSpawn = false
+    gui2.Parent = player:WaitForChild("PlayerGui")
 
-local function buildGui2ForCharacter(character)
-	-- destroy old NovaGUI if exists for this player (avoid duplicates)
-	local old = player.PlayerGui:FindFirstChild("NovaGUI")
-	if old then old:Destroy() end
+    local frame = Instance.new("Frame", gui2)
+    frame.Size = UDim2.new(0,256,0,286)
+    frame.Position = UDim2.new(0.5,-130,0.5,-135)
+    frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Visible = false
 
-	local gui2 = Instance.new("ScreenGui")
-	gui2.Name = "NovaGUI"
-	gui2.ResetOnSpawn = false
-	gui2.Parent = player:WaitForChild("PlayerGui")
+    local icon = Instance.new("ImageButton", gui2)
+    icon.Size = UDim2.new(0,75,0,75)
+    icon.Position = UDim2.new(0,50,0,300)
+    icon.Image = "rbxassetid://71285066607329"
+    local _uc = Instance.new("UICorner", icon); _uc.CornerRadius = UDim.new(0,15)
+    icon.MouseButton1Click:Connect(function() frame.Visible = not frame.Visible end)
 
-	local frame = Instance.new("Frame", gui2)
-	frame.Size = UDim2.new(0,256,0,286)
-	frame.Position = UDim2.new(0.5,-130,0.5,-135)
-	frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-	frame.Active = true; frame.Draggable = true; frame.Visible = false
-	Instance.new("UICorner", frame).CornerRadius = UDim.new(0,20)
-	local stroke = Instance.new("UIStroke", frame); stroke.Thickness = 4; stroke.Color = Color3.fromRGB(211,79,35)
+    local function label(text, pos)
+        local l = Instance.new("TextLabel", frame)
+        l.Text = text; l.TextScaled = true; l.Font = Enum.Font.Arcade
+        l.Size = UDim2.new(0,200,0,50); l.Position = pos
+        l.TextColor3 = Color3.fromRGB(39,151,211); l.BackgroundTransparency = 1
+    end
+    label("Nova Hub", UDim2.new(0,40,0,0)); label("TT: @novahub57", UDim2.new(0,20,0,30)); label("If bag Reset", UDim2.new(0,30,0,50))
 
-	local icon = Instance.new("ImageButton", gui2)
-	icon.Size = UDim2.new(0,75,0,75)
-	icon.Position = UDim2.new(0,50,0,300)
-	icon.Image = "rbxassetid://71285066607329"
-	Instance.new("UICorner", icon).CornerRadius = UDim.new(0,15)
-	icon.MouseButton1Click:Connect(function() frame.Visible = not frame.Visible end)
+    local buttonsRefs = {} -- map BoolValueName -> TextButton
 
-	local function makeLabel(text, pos)
-		local lbl = Instance.new("TextLabel", frame)
-		lbl.Text = text; lbl.TextScaled = true; lbl.Font = Enum.Font.Arcade
-		lbl.Size = UDim2.new(0,200,0,50); lbl.Position = pos
-		lbl.TextColor3 = Color3.fromRGB(39,151,211); lbl.BackgroundTransparency = 1
-	end
-	makeLabel("Nova Hub", UDim2.new(0,40,0,0))
-	makeLabel("TT: @novahub57", UDim2.new(0,20,0,30))
-	makeLabel("If bag Reset", UDim2.new(0,30,0,50))
+    local function createButton(name, pos, bv, onChange)
+        local btn = Instance.new("TextButton", frame)
+        btn.Size = UDim2.new(0,113,0,50)
+        btn.Position = pos
+        btn.Font = Enum.Font.Arcade
+        btn.TextScaled = true
+        btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        btn.TextColor3 = Color3.new(0,0,0)
+        local uc = Instance.new("UICorner", btn); uc.CornerRadius = UDim.new(0,8)
 
-	-- generic create button that syncs with BoolValue and stores reference
-	local function createButton(pos, boolValue, onChange)
-		local btn = Instance.new("TextButton", frame)
-		btn.Size = UDim2.new(0,113,0,50)
-		btn.Position = pos
-		btn.Font = Enum.Font.Arcade
-		btn.TextScaled = true
-		btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		btn.TextColor3 = Color3.new(0,0,0)
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+        -- initial
+        onChange(bv.Value, btn)
+        buttonsRefs[bv.Name] = btn
 
-		-- initial visual via onChange
-		onChange(boolValue.Value, btn)
-		-- store ref
-		gui2Buttons[boolValue.Name] = btn
+        btn.MouseButton1Click:Connect(function()
+            bv.Value = not bv.Value
+            -- onChange will be invoked by bv.Changed listener below as well
+        end)
 
-		btn.MouseButton1Click:Connect(function()
-			boolValue.Value = not boolValue.Value
-			-- immediate update
-			onChange(boolValue.Value, btn)
-			-- FastSpeedSteal controls GUI1 visibility
-			if boolValue.Name == "FastSpeedSteal" then gui1.Enabled = boolValue.Value end
-		end)
-		-- update when BoolValue changed externally
-		boolValue.Changed:Connect(function(new)
-			onChange(new, btn)
-			if boolValue.Name == "FastSpeedSteal" then gui1.Enabled = new end
-		end)
-		return btn
-	end
+        -- ensure UI updates also if BoolValue changed elsewhere
+        bv.Changed:Connect(function(new)
+            onChange(new, btn)
+        end)
 
-	-- Anchor button (controls hrp.Anchored)
-	createButton(UDim2.new(0,10,0,212), buttonStates.Anchor, function(state, btn)
-		if hrp then hrp.Anchored = state end
-		if state then btn.Text = "Anchor ON"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		else btn.Text = "Anchor OFF"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
-	end)
+        return btn
+    end
 
-	-- Speed
-	createButton(UDim2.new(0,130,0,212), buttonStates.Speed, function(state, btn)
-		if state then
-			hum.WalkSpeed = (hum and hum.WalkSpeed or 16) + 20
-			btn.Text = "Speed ON"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		else
-			-- restore default stored by humanoid on spawn might vary, so set to 16 if missing
-			hum.WalkSpeed = hum and hum.WalkSpeed or 16
-			btn.Text = "Speed OFF"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-		end
-	end)
+    -- Anchor button
+    createButton("Anchor OFF", UDim2.new(0,10,0,212), buttonStates.Anchor, function(state, btn)
+        hrp.Anchored = state
+        if state then btn.Text = "Anchor ON"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else btn.Text = "Anchor OFF"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
 
-	-- Teleport (InstantSteal)
-	createButton(UDim2.new(0,10,0,150), buttonStates.Teleport, function(state, btn)
-		if state then btn.Text = "InstantSteal ON"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		else btn.Text = "InstantSteal OFF"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
-	end)
+        -- Also reflect in GUI1 mainBtn text (so both UIs in sync)
+        mainBtn.Text = state and "Anchor: ON" or "Anchor: OFF"
+        upBtn.Visible, downBtn.Visible, tpBtn.Visible = state, state, state
+    end)
 
-	-- Noclip
-	createButton(UDim2.new(0,130,0,150), buttonStates.Noclip, function(state, btn)
-		for _, p in ipairs(character:GetDescendants()) do
-			if p:IsA("BasePart") then p.CanCollide = not state end
-		end
-		if state then btn.Text = "On Noclip"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		else btn.Text = "Off Noclip"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
-	end)
+    -- Speed button
+    createButton("Speed OFF", UDim2.new(0,130,0,212), buttonStates.Speed, function(state, btn)
+        if state then
+            humanoid.WalkSpeed = originalSpeed + 20
+            btn.Text = "Speed ON"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else
+            humanoid.WalkSpeed = originalSpeed
+            btn.Text = "Speed OFF"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        end
+    end)
 
-	-- ForwardTp
-	createButton(UDim2.new(0,130,0,90), buttonStates.ForwardTp, function(state, btn)
-		btn.Text = state and "Wait For Update" or "WaitForUpdate"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-	end)
+    -- Teleport / InstantSteal button (controls BoolValue only)
+    createButton("Teleport OFF", UDim2.new(0,10,0,150), buttonStates.Teleport, function(state, btn)
+        if state then
+            btn.Text = "InstantSteal ON"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else
+            btn.Text = "InstantSteal OFF"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+        end
+    end)
 
-	-- FastSpeedSteal / NoclipBypass (controls GUI1)
-	createButton(UDim2.new(0,10,0,90), buttonStates.FastSpeedSteal, function(state, btn)
-		btn.Text = "Noclip Byppas"
-		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-		gui1.Enabled = state
-	end)
+    -- Noclip button
+    createButton("On Noclip", UDim2.new(0,130,0,150), buttonStates.Noclip, function(state, btn)
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not state
+            end
+        end
+        if state then btn.Text = "On Noclip"; btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        else btn.Text = "Off Noclip"; btn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
+    end)
+
+    -- Forward Tp button (just toggles bool)
+    createButton("Forward Tp wait While Update", UDim2.new(0,130,0,90), buttonStates.ForwardTp, function(state, btn)
+        btn.Text = state and "Wait For Update" or "WaitForUpdate"
+        btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+    end)
+
+    -- FastSpeedSteal / NoclipBypass button -> controls gui1 visibility
+    createButton("Wait While Update", UDim2.new(0,10,0,90), buttonStates.FastSpeedSteal, function(state, btn)
+        btn.Text = state and "Wait For Update" or "Wait for update"
+        btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+        -- control GUI1 visibility
+        gui1.Enabled = state
+    end)
+
+    -- Teleport interpolation local state
+    local teleportInProgress = false
+    local teleportTarget = nil
+    local teleportProgress = 0
+    local teleportSteps = 30
+
+    -- Smooth interpolation
+    RunService.RenderStepped:Connect(function(delta)
+        if teleportInProgress and teleportTarget and hrp then
+            teleportProgress = teleportProgress + delta
+            local alpha = math.clamp(teleportProgress / (0.05 * teleportSteps), 0, 1)
+            hrp.CFrame = CFrame.new(hrp.Position:Lerp(teleportTarget, alpha))
+            if alpha >= 1 then
+                teleportInProgress = false
+                teleportTarget = nil
+                teleportProgress = 0
+                -- restore teleport button appearance (do not change BoolValue)
+                local tb = buttonsRefs["Teleport"]
+                if tb then
+                    tb.Text = buttonStates.Teleport.Value and "InstantSteal ON" or "InstantSteal OFF"
+                    tb.BackgroundColor3 = buttonStates.Teleport.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+                end
+            end
+        end
+    end)
+
+    -- Helper: find player's owned Plot MultiplierPart
+    local function getPlayerPlotTpPart()
+        local ok, plotsFolder = pcall(function() return workspace:WaitForChild("Plots") end)
+        if not ok or not plotsFolder then return nil end
+        for i = 1, 8 do
+            local plot = plotsFolder:FindFirstChild("Plot"..i)
+            if plot then
+                local ownerValue = plot:FindFirstChild("Owner")
+                local tpPart = plot:FindFirstChild("MultiplierPart")
+                if ownerValue and ownerValue.Value == player.Name and tpPart then
+                    return tpPart
+                end
+            end
+        end
+        return nil
+    end
+
+    -- ProximityPrompt binding: only perform teleport if the Teleport BoolValue is ON
+    for _, prompt in ipairs(workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            prompt.Triggered:Connect(function(triggeringPlayer)
+                -- ensure it was this local player who triggered it (ProximityPrompt passes player)
+                if triggeringPlayer and triggeringPlayer ~= player then return end
+
+                -- Only proceed when Teleport (InstantSteal) is enabled
+                if not buttonStates.Teleport.Value then
+                    return
+                end
+
+                local tpPart = getPlayerPlotTpPart()
+                if not tpPart then return end
+
+                -- compute target and start interpolation
+                local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
+                teleportTarget = tpPart.Position + offset
+                teleportProgress = 0
+                teleportInProgress = true
+
+                -- update teleport button appearance locally (but DO NOT change BoolValue)
+                local tb = buttonsRefs["Teleport"]
+                if tb then
+                    tb.Text = "InstantSteal (in progress)"
+                    tb.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+                end
+
+                -- Temporarily enable Anchor and Noclip if they were off; remember previous states to restore
+                local anchorWasOn = buttonStates.Anchor.Value
+                local noclipWasOn = buttonStates.Noclip.Value
+
+                if not anchorWasOn then
+                    buttonStates.Anchor.Value = true
+                    -- hrp.Anchored will be set by Anchor Changed handler (or we can set explicitly)
+                end
+
+                if not noclipWasOn then
+                    buttonStates.Noclip.Value = true
+                    -- parts CanCollide will be set by Noclip Changed handler
+                end
+
+                -- wait until teleport interpolation finishes, then restore states (in another thread)
+                task.spawn(function()
+                    while teleportInProgress do RunService.RenderStepped:Wait() end
+                    task.wait(0.1) -- tiny delay to be safe
+
+                    if not anchorWasOn then
+                        buttonStates.Anchor.Value = false
+                    end
+                    if not noclipWasOn then
+                        buttonStates.Noclip.Value = false
+                    end
+
+                    -- restore teleport button appearance (leave BoolValue intact)
+                    if tb then
+                        tb.Text = buttonStates.Teleport.Value and "InstantSteal ON" or "InstantSteal OFF"
+                        tb.BackgroundColor3 = buttonStates.Teleport.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+                    end
+                end)
+            end)
+        end
+    end
 end
 
--- ---- ProximityPrompt hooking ----
--- We'll create one handler and attach it once per prompt, also attach to future prompts
-local connectedPrompts = {}
-local function connectPrompt(prompt)
-	if connectedPrompts[prompt] then return end
-	connectedPrompts[prompt] = prompt.Triggered:Connect(function(playerWhoTriggered)
-		-- Only run if Teleport bool is ON
-		if not buttonStates.Teleport.Value then return end
-
-		-- ensure character's current hrp is valid
-		local ch = player.Character
-		if not ch then return end
-		local hrp = ch:FindFirstChild("HumanoidRootPart")
-		if not hrp then return end
-
-		-- find player's plot part
-		local function getPlayerPlotTpPart()
-			local ok, plotsFolder = pcall(function() return workspace:WaitForChild("Plots") end)
-			if not ok or not plotsFolder then return nil end
-			for i = 1, 8 do
-				local plot = plotsFolder:FindFirstChild("Plot"..i)
-				if plot then
-					local owner = plot:FindFirstChild("Owner")
-					local tp = plot:FindFirstChild("MultiplierPart")
-					if owner and owner.Value == player.Name and tp then return tp end
-				end
-			end
-			return nil
-		end
-
-		local tpPart = getPlayerPlotTpPart()
-		if not tpPart then return end
-
-		-- prepare teleport
-		local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
-		local teleportTarget = tpPart.Position + offset
-
-		-- update GUI2 teleport button visuals
-		local tb = gui2Buttons.Teleport
-		if tb then tb.Text = "InstantSteal ON"; tb.BackgroundColor3 = Color3.fromRGB(60,60,60) end
-
-		-- record previous states
-		local prevAnchor = buttonStates.Anchor.Value
-		local prevNoclip = buttonStates.Noclip.Value
-
-		-- temporarily enable Anchor and Noclip if needed
-		if not prevAnchor then
-			buttonStates.Anchor.Value = true
-			if hrp then hrp.Anchored = true end
-			-- also reflect GUI1
-			setAnchor(true)
-		end
-		if not prevNoclip then
-			buttonStates.Noclip.Value = true
-			for _, p in ipairs(ch:GetDescendants()) do
-				if p:IsA("BasePart") then p.CanCollide = false end
-			end
-			local nb = gui2Buttons.Noclip
-			if nb then nb.Text = "On Noclip"; nb.BackgroundColor3 = Color3.fromRGB(60,60,60) end
-		end
-
-		-- smooth teleport interpolation
-		local progress = 0
-		local steps = 30
-		local teleporting = true
-		-- We'll perform interpolation on RenderStepped (temporary closure)
-		local conn
-		conn = RunService.RenderStepped:Connect(function(dt)
-			if not teleporting then
-				conn:Disconnect()
-				return
-			end
-			progress = progress + dt
-			local alpha = math.clamp(progress / (0.05 * steps), 0, 1)
-			local newPos = hrp.Position:Lerp(teleportTarget, alpha)
-			-- set position; orientation set to camera forward to reduce camera mismatch
-			local cam = Workspace.CurrentCamera
-			local look = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
-			hrp.CFrame = CFrame.new(newPos, newPos + look)
-			if alpha >= 1 then
-				teleporting = false
-				-- finalize visuals / bools
-				if buttonStates.Teleport.Value then buttonStates.Teleport.Value = false end
-				if tb then tb.Text = "InstantSteal OFF"; tb.BackgroundColor3 = Color3.fromRGB(150,150,150) end
-				-- restore anchor/noclip after short delay
-				task.spawn(function()
-					task.wait(0.1)
-					if not prevAnchor then
-						buttonStates.Anchor.Value = false
-						if hrp then hrp.Anchored = false end
-						setAnchor(false)
-						local ab = gui2Buttons.Anchor
-						if ab then ab.Text = "Anchor OFF"; ab.BackgroundColor3 = Color3.fromRGB(150,150,150) end
-					end
-					if not prevNoclip then
-						buttonStates.Noclip.Value = false
-						for _, p in ipairs(ch:GetDescendants()) do
-							if p:IsA("BasePart") then p.CanCollide = true end
-						end
-						local nb2 = gui2Buttons.Noclip
-						if nb2 then nb2.Text = "Off Noclip"; nb2.BackgroundColor3 = Color3.fromRGB(150,150,150) end
-					end
-				end)
-			end
-		end)
-	end)
-end
-
--- attach to existing prompts and to future ones
-for _, d in ipairs(Workspace:GetDescendants()) do
-	if d:IsA("ProximityPrompt") then
-		connectPrompt(d)
-	end
-end
-Workspace.DescendantAdded:Connect(function(d)
-	if d:IsA("ProximityPrompt") then connectPrompt(d) end
-end)
-
--- On spawn / respawn: refresh references and build GUI2
+-- initial setup for current character and on respawn
 local function onCharacterAdded(c)
-	char = c
-	hum = char:WaitForChild("Humanoid")
-	root = char:WaitForChild("HumanoidRootPart")
-	targetPos = root.Position
-	-- build GUI2 fresh for this character
-	buildGui2ForCharacter(char)
+    char = c
+    hum = char:WaitForChild("Humanoid")
+    root = char:WaitForChild("HumanoidRootPart")
+    targetPos = root.Position
+
+    -- When character changes, ensure ButtonValues re-apply (anchor / noclip effects)
+    -- Anchor Bool influences hrp.Anchored
+    buttonStates.Anchor.Changed:Connect(function(val)
+        if root then root.Anchored = val end
+        -- also update GUI1 mainBtn text to match
+        mainBtn.Text = val and "Anchor: ON" or "Anchor: OFF"
+        upBtn.Visible, downBtn.Visible, tpBtn.Visible = val, val, val
+    end)
+    -- Noclip Bool: set CanCollide on parts
+    buttonStates.Noclip.Changed:Connect(function(val)
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not val
+            end
+        end
+        -- ensure Nova GUI noclip button (if present) matches; that handler in setupNovaGUI already listens to BoolValue changes
+    end)
+
+    -- FastSpeedSteal (Wait While Update) already wired to gui1.Enabled earlier, but if character respawns ensure gui1 still synced:
+    gui1.Enabled = buttonStates.FastSpeedSteal.Value
+
+    -- Setup Nova GUI for this character
+    setupNovaGUI(char)
 end
 
--- initial setup
 if player.Character then onCharacterAdded(player.Character) end
 player.CharacterAdded:Connect(onCharacterAdded)
 
--- Heartbeat for Anchor movement (GUI1)
+-- Heartbeat: move anchored root according to GUI1 controls
 RunService.Heartbeat:Connect(function(dt)
-	if anchorEnabled and root and hum then
-		local move = hum.MoveDirection
-		local hor = Vector3.new(move.X, 0, move.Z) * (storedWalkSpeed or 16) * dt
-		local vert = Vector3.new(0, vertControl * flySpeed * dt, 0)
-		targetPos = targetPos + hor + vert
-		local cam = Workspace.CurrentCamera
-		local look = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
-		root.CFrame = CFrame.new(targetPos, targetPos + look)
-	end
+    if anchorEnabled and root and hum then
+        local move = hum.MoveDirection
+        local hor = Vector3.new(move.X,0,move.Z) * (storedWalkSpeed or hum.WalkSpeed) * dt
+        local vert = Vector3.new(0, vertControl * flySpeed * dt, 0)
+        targetPos = targetPos + hor + vert
+        local camLook = Workspace.CurrentCamera and Workspace.CurrentCamera.CFrame.LookVector or Vector3.new(0,0,-1)
+        root.CFrame = CFrame.new(targetPos, targetPos + camLook)
+    end
 end)
