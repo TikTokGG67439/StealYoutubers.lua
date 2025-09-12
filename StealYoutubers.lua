@@ -401,7 +401,7 @@ local function createNovaGUI(character)
 						root.CFrame = CFrame.new(root.Position:Lerp(teleportTarget, alpha))
 					end
 
-					task.wait(0.5) -- небольшая пауза после телепорта
+					task.wait(7) -- небольшая пауза после телепорта
 
 					-- Синхронизация Anchor с текущим BoolValue
 					if root then
