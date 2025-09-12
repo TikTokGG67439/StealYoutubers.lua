@@ -10,7 +10,7 @@ if not player then return end
 
 -- Ensure single run (в случае двойного старта)
 if script:GetAttribute("Initialized") then return end
-script:SetAttribute("Initialized", true)
+script:SetAttribute("Initialized", true) 
 
 -- Character refs (будут обновляться)
 local char = player.Character or player.CharacterAdded:Wait()
@@ -193,7 +193,7 @@ local function createNovaGUI(character)
 
 	local icon = Instance.new("ImageButton", screenGui)
 	icon.Size = UDim2.new(0,75,0,75)
-	icon.Position = UDim2.new(0,50,0,300)
+	icon.Position = UDim2.new(0,200,0,200)
 	icon.Image = "rbxassetid://71285066607329"
 	icon.Draggable = true
 	local uic = Instance.new("UICorner", icon); uic.CornerRadius = UDim.new(0,15)
@@ -339,11 +339,11 @@ local function createNovaGUI(character)
 			prompt.Triggered:Connect(function(triggeringPlayer)
 				if triggeringPlayer ~= player then return end
 				if not buttonStates.Teleport.Value then return end
-
-				local tpPart = getPlayerPlotTpPart()
-				if not tpPart then return end
 				if teleportInProgress then return end
 				teleportInProgress = true
+
+				local tpPart = getPlayerPlotTpPart()
+				if not tpPart then teleportInProgress = false return end
 
 				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
 				local teleportTarget = tpPart.Position + offset
@@ -358,7 +358,7 @@ local function createNovaGUI(character)
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
-				-- Сохраняем состояние CanCollide всех частей
+				-- Сохраняем CanCollide всех частей
 				local partsState = {}
 				for _, p in ipairs(character:GetDescendants()) do
 					if p:IsA("BasePart") then
@@ -369,17 +369,18 @@ local function createNovaGUI(character)
 				-- Временно включаем Anchor/Noclip
 				if not anchorWasOn and root then
 					root.Anchored = true
+					buttonStates.Anchor.Value = true
 					local abtn = buttonsMap["Anchor"]
 					if abtn then
 						abtn.Text = "Anchor ON"
 						abtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 					end
 				end
-
 				if not noclipWasOn then
 					for p, _ in pairs(partsState) do
 						p.CanCollide = false
 					end
+					buttonStates.Noclip.Value = true
 					local nbtn = buttonsMap["Noclip"]
 					if nbtn then
 						nbtn.Text = "On Noclip"
@@ -398,19 +399,20 @@ local function createNovaGUI(character)
 						root.CFrame = CFrame.new(root.Position:Lerp(teleportTarget, alpha))
 					end
 
-					-- **InstantSteal выключается сразу**
+					-- InstantSteal сразу отключается
+					buttonStates.Teleport.Value = false
 					if tb then
 						tb.Text = "InstantSteal OFF"
 						tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- **Ждём 5 секунд перед отключением Anchor/Noclip**
-					local waitTime = 10 -- регулируется
-					task.wait(waitTime)
+					-- Ждём 5 секунд перед отключением Anchor/Noclip
+					task.wait(5)
 
-					-- отключаем Anchor
+					-- Отключаем Anchor
 					if root and not anchorWasOn then
 						root.Anchored = false
+						buttonStates.Anchor.Value = false
 						local abtn = buttonsMap["Anchor"]
 						if abtn then
 							abtn.Text = "Anchor OFF"
@@ -418,13 +420,14 @@ local function createNovaGUI(character)
 						end
 					end
 
-					-- отключаем Noclip
+					-- Отключаем Noclip
 					if not noclipWasOn then
 						for p, v in pairs(partsState) do
 							if p and p.Parent then
 								p.CanCollide = v
 							end
 						end
+						buttonStates.Noclip.Value = false
 						local nbtn = buttonsMap["Noclip"]
 						if nbtn then
 							nbtn.Text = "Off Noclip"
