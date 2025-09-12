@@ -1,16 +1,16 @@
 -- Unified Anchor + Nova (LocalScript)
 -- Поместить как LocalScript в StarterPlayerScripts
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
-
 local player = Players.LocalPlayer
 if not player then return end
 
 -- Ensure single run (в случае двойного старта)
 if script:GetAttribute("Initialized") then return end
-script:SetAttribute("Initialized", true) 
+script:SetAttribute("Initialized", true)
 
 -- Character refs (будут обновляться)
 local char = player.Character or player.CharacterAdded:Wait()
@@ -42,8 +42,10 @@ local function getOrCreateButtonStates()
 end
 local buttonStates = getOrCreateButtonStates()
 
+-- Keep original speed/jump to restore after anchor off
+local savedWalkSpeed, savedJumpPower = hum.WalkSpeed, hum.JumpPower
+
 -- ---------------- GUI1 (Anchor) ----------------
--- Я максимально сохранил исходный makeBtn/позиции/стиль
 local gui1 = Instance.new("ScreenGui")
 gui1.Name = "AnchorGUI_v1"
 gui1.ResetOnSpawn = false
@@ -60,29 +62,35 @@ local function makeBtn(parent, name, pos, size, txt)
 	b.TextColor3 = Color3.new(1,1,1)
 	b.Font = Enum.Font.ArialBold
 	b.TextScaled = true
+	local corner = Instance.new("UICorner", b)
+	corner.CornerRadius = UDim.new(0,10)
 	return b
 end
 
 local mainBtn = makeBtn(gui1, "AnchorBtn", UDim2.new(0,16,0,16), UDim2.new(0,180,0,42), "Anchor: OFF")
-local upBtn = makeBtn(gui1, "UpBtn", UDim2.new(0,200,0,16), UDim2.new(0,40,0,42), "▲"); upBtn.Visible = false
-local downBtn = makeBtn(gui1, "DownBtn", UDim2.new(0,245,0,16), UDim2.new(0,40,0,42), "▼"); downBtn.Visible = false
-local tpBtn = makeBtn(gui1, "TpBtn", UDim2.new(0,290,0,16), UDim2.new(0,60,0,42), "Tp"); tpBtn.Visible = false
+local upBtn = makeBtn(gui1, "UpBtn", UDim2.new(0,200,0,16), UDim2.new(0,40,0,42), "▲"); upBtn.Visible=false
+local downBtn = makeBtn(gui1, "DownBtn", UDim2.new(0,245,0,16), UDim2.new(0,40,0,42), "▼"); downBtn.Visible=false
+local tpBtn = makeBtn(gui1, "TpBtn", UDim2.new(0,290,0,16), UDim2.new(0,60,0,42), "Tp"); tpBtn.Visible=false
 
 local toggleBox = Instance.new("TextBox", gui1)
-toggleBox.Size = UDim2.new(0,60,0,20); toggleBox.Position = UDim2.new(0,16,0,60); toggleBox.Text = "F"
-toggleBox.Font = Enum.Font.Arial; toggleBox.TextScaled = true
+toggleBox.Size = UDim2.new(0,60,0,20)
+toggleBox.Position = UDim2.new(0,16,0,60)
+toggleBox.Text = "F"
+toggleBox.Font = Enum.Font.Arial
+toggleBox.TextScaled = true
+
 local tpBox = Instance.new("TextBox", gui1)
-tpBox.Size = UDim2.new(0,60,0,20); tpBox.Position = UDim2.new(0,80,0,60); tpBox.Text = "T"
-tpBox.Font = Enum.Font.Arial; tpBox.TextScaled = true
+tpBox.Size = UDim2.new(0,60,0,20)
+tpBox.Position = UDim2.new(0,80,0,60)
+tpBox.Text = "T"
+tpBox.Font = Enum.Font.Arial
+tpBox.TextScaled = true
 
--- UICorners (немного стиля)
 local function addCorner(inst)
-	local c = Instance.new("UICorner", inst)
-	c.CornerRadius = UDim.new(0,10)
+	Instance.new("UICorner", inst).CornerRadius = UDim.new(0,10)
 end
-addCorner(mainBtn); addCorner(upBtn); addCorner(downBtn); addCorner(tpBtn); addCorner(toggleBox); addCorner(tpBox)
+addCorner(toggleBox); addCorner(tpBox);
 
--- parse key boxes
 toggleBox.FocusLost:Connect(function()
 	local key = (toggleBox.Text or ""):upper()
 	if Enum.KeyCode[key] then toggleKey = Enum.KeyCode[key] end
@@ -92,11 +100,41 @@ tpBox.FocusLost:Connect(function()
 	if Enum.KeyCode[key] then tpKey = Enum.KeyCode[key] end
 end)
 
--- При клике на mainBtn меняем общую BoolValue Anchor (источник истины)
+-- Centralized setAnchor: uses ButtonStates.Anchor as source of truth
+local function setAnchorState(state)
+	-- store previous if turning on
+	if state then
+		savedWalkSpeed, savedJumpPower = hum.WalkSpeed, hum.JumpPower
+		hum.WalkSpeed = 0
+		hum.JumpPower = 0
+		-- Keep hrp anchored for physics stability if desired (Nova also sets Anchored)
+		if root then
+			pcall(function() root.Anchored = true end)
+		end
+		targetPos = root.Position
+	else
+		-- restore
+		if savedWalkSpeed then hum.WalkSpeed = savedWalkSpeed end
+		if savedJumpPower then hum.JumpPower = savedJumpPower end
+		if root then
+			pcall(function() root.Anchored = false end)
+		end
+		vertControl = 0
+	end
+	-- Update mainBtn text & UI visibility
+	mainBtn.Text = state and "Anchor: ON" or "Anchor: OFF"
+	upBtn.Visible, downBtn.Visible, tpBtn.Visible = state, state, state
+	-- Ensure BoolValue reflects it (avoid recursion if already set)
+	if buttonStates.Anchor.Value ~= state then
+		buttonStates.Anchor.Value = state
+	end
+end
+
+-- mainBtn toggles Anchor
 mainBtn.MouseButton1Click:Connect(function()
-	buttonStates.Anchor.Value = not buttonStates.Anchor.Value
+	setAnchorState(not buttonStates.Anchor.Value)
 end)
--- tpBtn: быстрый телепорт вперёд при включенном Anchor (меняем позицию root напрямую)
+
 tpBtn.MouseButton1Click:Connect(function()
 	if buttonStates.Anchor.Value and root and Workspace.CurrentCamera then
 		local look = Workspace.CurrentCamera.CFrame.LookVector
@@ -104,28 +142,11 @@ tpBtn.MouseButton1Click:Connect(function()
 		root.CFrame = CFrame.new(targetPos, targetPos + look)
 	end
 end)
--- up / down controls
+
 upBtn.MouseButton1Down:Connect(function() vertControl = 1 end)
 upBtn.MouseButton1Up:Connect(function() vertControl = 0 end)
 downBtn.MouseButton1Down:Connect(function() vertControl = -1 end)
 downBtn.MouseButton1Up:Connect(function() vertControl = 0 end)
-
--- Синхронизация GUI1 с buttonStates.Anchor (истинное состояние)
-buttonStates.Anchor.Changed:Connect(function(val)
-	if val then
-		mainBtn.Text = "Anchor: ON"
-		upBtn.Visible, downBtn.Visible, tpBtn.Visible = true, true, true
-		-- поставить targetPos на текущую позицию, чтобы не было скачков
-		if root then targetPos = root.Position end
-	else
-		mainBtn.Text = "Anchor: OFF"
-		upBtn.Visible, downBtn.Visible, tpBtn.Visible = false, false, false
-		vertControl = 0
-	end
-end)
--- и сразу установить начальное значение
-mainBtn.Text = buttonStates.Anchor.Value and "Anchor: ON" or "Anchor: OFF"
-upBtn.Visible, downBtn.Visible, tpBtn.Visible = buttonStates.Anchor.Value, buttonStates.Anchor.Value, buttonStates.Anchor.Value
 
 -- GUI1 включается/выключается кнопкой FastSpeedSteal
 buttonStates.FastSpeedSteal.Changed:Connect(function(val)
@@ -133,11 +154,23 @@ buttonStates.FastSpeedSteal.Changed:Connect(function(val)
 end)
 gui1.Enabled = buttonStates.FastSpeedSteal.Value
 
--- Input (F/T/Space/Shift) для Anchor
+-- Heartbeat: плавное движение при Anchor (использует hum.MoveDirection)
+RunService.Heartbeat:Connect(function(dt)
+	if buttonStates.Anchor.Value and root and hum then
+		local move = hum.MoveDirection
+		local hor = Vector3.new(move.X, 0, move.Z) * hum.WalkSpeed * dt
+		local vert = Vector3.new(0, vertControl * flySpeed * dt, 0)
+		targetPos = targetPos + hor + vert
+		local camLook = Workspace.CurrentCamera and Workspace.CurrentCamera.CFrame.LookVector or Vector3.new(0,0,-1)
+		root.CFrame = CFrame.new(targetPos, targetPos + camLook)
+	end
+end)
+
+-- Input (F/T/Space/Shift)
 UIS.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == toggleKey then
-		buttonStates.Anchor.Value = not buttonStates.Anchor.Value
+		setAnchorState(not buttonStates.Anchor.Value)
 	elseif input.KeyCode == tpKey and buttonStates.Anchor.Value then
 		if root and Workspace.CurrentCamera then
 			local look = Workspace.CurrentCamera.CFrame.LookVector
@@ -156,21 +189,30 @@ UIS.InputEnded:Connect(function(input)
 	end
 end)
 
--- Heartbeat: перемещение при Anchor
-RunService.Heartbeat:Connect(function(dt)
-	if buttonStates.Anchor.Value and root and hum then
-		local move = hum.MoveDirection
-		-- если Speed включена, можно учитывать её эффект где нужно; здесь используем hum.WalkSpeed
-		local hor = Vector3.new(move.X,0,move.Z) * hum.WalkSpeed * dt
-		local vert = Vector3.new(0, vertControl * flySpeed * dt, 0)
-		targetPos = targetPos + hor + vert
-		local camLook = Workspace.CurrentCamera and Workspace.CurrentCamera.CFrame.LookVector or Vector3.new(0,0,-1)
-		root.CFrame = CFrame.new(targetPos, targetPos + camLook)
+-- Respawn handling for player
+player.CharacterAdded:Connect(function(c)
+	char = c
+	hum = char:WaitForChild("Humanoid")
+	root = char:WaitForChild("HumanoidRootPart")
+	targetPos = root.Position
+	if buttonStates.Anchor.Value then
+		-- keep anchored behavior on respawn
+		savedWalkSpeed, savedJumpPower = hum.WalkSpeed, hum.JumpPower
+		hum.WalkSpeed = 0
+		hum.JumpPower = 0
+		pcall(function() root.Anchored = true end)
+	else
+		pcall(function() root.Anchored = false end)
 	end
 end)
 
--- ---------------- GUI2 (Nova) ----------------
--- Уникальное имя, чтобы не создавать дубликатов при респавне
+-- Ensure GUI mainBtn and up/down/tp visibility sync when BoolValue changes from other sources
+buttonStates.Anchor.Changed:Connect(function(val)
+	-- When BoolValue changes (e.g., Nova GUI), apply the anchor state
+	setAnchorState(val)
+end)
+
+-- ---------------- GUI2 (Nova) and other features ----------------
 local function createNovaGUI(character)
 	-- Удалим старый Nova GUI, если он есть (при респавне)
 	local existing = player:FindFirstChildOfClass("PlayerGui") and player.PlayerGui:FindFirstChild("NovaGUI_v2")
@@ -188,6 +230,7 @@ local function createNovaGUI(character)
 	frame.Active = true
 	frame.Draggable = true
 	frame.Visible = false
+
 	local uiframe = Instance.new("UICorner", frame); uiframe.CornerRadius = UDim.new(0,20)
 	local uiStroke = Instance.new("UIStroke", frame); uiStroke.Thickness = 4; uiStroke.Color = Color3.fromRGB(211,79,35)
 
@@ -196,7 +239,8 @@ local function createNovaGUI(character)
 	icon.Position = UDim2.new(0,200,0,200)
 	icon.Image = "rbxassetid://71285066607329"
 	icon.Draggable = true
-	local uic = Instance.new("UICorner", icon); uic.CornerRadius = UDim.new(0,15)
+	Instance.new("UICorner", icon).CornerRadius = UDim.new(0,15)
+
 	icon.MouseButton1Click:Connect(function() frame.Visible = not frame.Visible end)
 
 	local function makeLabel(text,pos)
@@ -205,11 +249,12 @@ local function createNovaGUI(character)
 		lbl.Size = UDim2.new(0,200,0,50); lbl.Position = pos
 		lbl.TextColor3 = Color3.fromRGB(39,151,211); lbl.BackgroundTransparency = 1
 	end
+
 	makeLabel("Nova Hub", UDim2.new(0,40,0,0))
 	makeLabel("TT: @novahub57", UDim2.new(0,20,0,30))
 	makeLabel("If bag Reset", UDim2.new(0,30,0,50))
 
-	local buttonsMap = {} -- map name->button instance so we can change text/colors manually
+	local buttonsMap = {}
 
 	local function createButton(name, pos, bv, onChange)
 		local btn = Instance.new("TextButton", frame)
@@ -220,32 +265,41 @@ local function createNovaGUI(character)
 		btn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 		btn.TextColor3 = Color3.new(0,0,0)
 		local uc = Instance.new("UICorner", btn); uc.CornerRadius = UDim.new(0,8)
-
-		-- init appearance by calling onChange with current value
+		-- init appearance
 		onChange(bv.Value, btn)
 		buttonsMap[bv.Name] = btn
-
 		btn.MouseButton1Click:Connect(function()
 			bv.Value = not bv.Value
-			-- onChange handled via bv.Changed listener below, so no need to call onChange here
 		end)
-
-		-- Keep UI in sync even if BoolValue changed elsewhere
 		bv.Changed:Connect(function(new)
 			onChange(new, btn)
 		end)
 		return btn
 	end
 
-	-- Anchor button in Nova: toggles buttonStates.Anchor (and via Changed will set hrp.Anchored etc.)
+	-- Anchor button in Nova: toggles buttonStates.Anchor
 	createButton("AnchorBtn_Nova", UDim2.new(0,10,0,212), buttonStates.Anchor, function(state, btn)
 		btn.Text = state and "Anchor ON" or "Anchor OFF"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 		-- sync GUI1 mainBtn text too
 		mainBtn.Text = state and "Anchor: ON" or "Anchor: OFF"
 		upBtn.Visible, downBtn.Visible, tpBtn.Visible = state, state, state
-		-- ensure actual root.Anchored matches
-		if root then root.Anchored = state end
+		-- Ensure actual root.Anchored matches
+		if root then
+			pcall(function() root.Anchored = state end)
+		end
+		-- Also apply hum speed changes if necessary
+		if state then
+			savedWalkSpeed, savedJumpPower = hum.WalkSpeed, hum.JumpPower
+			hum.WalkSpeed = 0
+			hum.JumpPower = 0
+			targetPos = root.Position
+		else
+			if savedWalkSpeed then hum.WalkSpeed = savedWalkSpeed end
+			if savedJumpPower then hum.JumpPower = savedJumpPower end
+			vertControl = 0
+			pcall(function() root.Anchored = false end)
+		end
 	end)
 
 	-- Speed button
@@ -254,22 +308,20 @@ local function createNovaGUI(character)
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 		if hum then
 			if state then hum.WalkSpeed = hum.WalkSpeed + 20 end
-			-- When turning off: we don't know original base if user toggled multiple times; to be safe, reset to 16 if turning off
 			if not state then hum.WalkSpeed = 16 end
 		end
 	end)
 
-	-- Teleport / InstantSteal button (controls BoolValue only)
+	-- Teleport / InstantSteal button
 	createButton("TeleportBtn_Nova", UDim2.new(0,10,0,150), buttonStates.Teleport, function(state, btn)
 		btn.Text = state and "InstantSteal ON" or "InstantSteal OFF"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
-	-- Noclip button
+	-- Noclip button: applies to the provided 'character'
 	createButton("NoclipBtn_Nova", UDim2.new(0,130,0,150), buttonStates.Noclip, function(state, btn)
 		btn.Text = state and "On Noclip" or "Off Noclip"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-		-- apply to current character parts
 		for _, part in ipairs(character:GetDescendants()) do
 			if part:IsA("BasePart") then
 				part.CanCollide = not state
@@ -294,9 +346,8 @@ local function createNovaGUI(character)
 	local teleportInProgress = false
 	local teleportTarget = nil
 	local teleportProgress = 0
-	local teleportDuration = 0.05 * 30 -- as before
+	local teleportDuration = 0.05 * 30
 
-	-- Smooth interpolation loop (RenderStepped)
 	RunService.RenderStepped:Connect(function(delta)
 		if teleportInProgress and teleportTarget and root then
 			teleportProgress = teleportProgress + delta
@@ -306,7 +357,6 @@ local function createNovaGUI(character)
 				teleportInProgress = false
 				teleportTarget = nil
 				teleportProgress = 0
-				-- restore teleport button visuals to match BoolValue
 				local tb = buttonsMap["Teleport"]
 				if tb then
 					tb.Text = buttonStates.Teleport.Value and "InstantSteal ON" or "InstantSteal OFF"
@@ -325,15 +375,13 @@ local function createNovaGUI(character)
 			if plot then
 				local owner = plot:FindFirstChild("Owner")
 				local tpPart = plot:FindFirstChild("MultiplierPart")
-				if owner and owner.Value == player.Name and tpPart then
-					return tpPart
-				end
+				if owner and owner.Value == player.Name and tpPart then return tpPart end
 			end
 		end
 		return nil
 	end
 
-	-- ProximityPrompt: срабатывает ТОЛЬКО если кнопка InstantSteal включена (BoolValue == true)
+	-- ProximityPrompt: срабатывает только если InstantSteal включен
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			prompt.Triggered:Connect(function(triggeringPlayer)
@@ -346,13 +394,9 @@ local function createNovaGUI(character)
 				if not tpPart then teleportInProgress = false return end
 
 				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
-				local teleportTarget = tpPart.Position + offset
-
+				local teleportTargetLocal = tpPart.Position + offset
 				local tb = buttonsMap["Teleport"]
-				if tb then
-					tb.Text = "InstantSteal (in progress)"
-					tb.BackgroundColor3 = Color3.fromRGB(255,200,0)
-				end
+				if tb then tb.Text = "InstantSteal (in progress)"; tb.BackgroundColor3 = Color3.fromRGB(255,200,0) end
 
 				-- Сохраняем исходное состояние Anchor/Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
@@ -361,31 +405,24 @@ local function createNovaGUI(character)
 				-- Сохраняем CanCollide всех частей
 				local partsState = {}
 				for _, p in ipairs(character:GetDescendants()) do
-					if p:IsA("BasePart") then
-						partsState[p] = p.CanCollide
-					end
+					if p:IsA("BasePart") then partsState[p] = p.CanCollide end
 				end
 
 				-- Временно включаем Anchor/Noclip
 				if not anchorWasOn and root then
-					root.Anchored = true
+					pcall(function() root.Anchored = true end)
 					buttonStates.Anchor.Value = true
 					local abtn = buttonsMap["Anchor"]
-					if abtn then
-						abtn.Text = "Anchor ON"
-						abtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-					end
+					if abtn then abtn.Text = "Anchor ON"; abtn.BackgroundColor3 = Color3.fromRGB(60,60,60) end
 				end
+
 				if not noclipWasOn then
 					for p, _ in pairs(partsState) do
-						p.CanCollide = false
+						if p and p:IsA("BasePart") then p.CanCollide = false end
 					end
 					buttonStates.Noclip.Value = true
 					local nbtn = buttonsMap["Noclip"]
-					if nbtn then
-						nbtn.Text = "On Noclip"
-						nbtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-					end
+					if nbtn then nbtn.Text = "On Noclip"; nbtn.BackgroundColor3 = Color3.fromRGB(60,60,60) end
 				end
 
 				-- Плавный телепорт
@@ -396,43 +433,32 @@ local function createNovaGUI(character)
 						local dt = RunService.RenderStepped:Wait()
 						elapsed = elapsed + dt
 						local alpha = math.clamp(elapsed / duration, 0, 1)
-						root.CFrame = CFrame.new(root.Position:Lerp(teleportTarget, alpha))
+						root.CFrame = CFrame.new(root.Position:Lerp(teleportTargetLocal, alpha))
 					end
 
 					-- InstantSteal сразу отключается
 					buttonStates.Teleport.Value = false
-					if tb then
-						tb.Text = "InstantSteal OFF"
-						tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
-					end
+					if tb then tb.Text = "InstantSteal OFF"; tb.BackgroundColor3 = Color3.fromRGB(150,150,150) end
 
 					-- Ждём 5 секунд перед отключением Anchor/Noclip
 					task.wait(5)
 
 					-- Отключаем Anchor
 					if root and not anchorWasOn then
-						root.Anchored = false
+						pcall(function() root.Anchored = false end)
 						buttonStates.Anchor.Value = false
 						local abtn = buttonsMap["Anchor"]
-						if abtn then
-							abtn.Text = "Anchor OFF"
-							abtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-						end
+						if abtn then abtn.Text = "Anchor OFF"; abtn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
 					end
 
 					-- Отключаем Noclip
 					if not noclipWasOn then
 						for p, v in pairs(partsState) do
-							if p and p.Parent then
-								p.CanCollide = v
-							end
+							if p and p.Parent then p.CanCollide = v end
 						end
 						buttonStates.Noclip.Value = false
 						local nbtn = buttonsMap["Noclip"]
-						if nbtn then
-							nbtn.Text = "Off Noclip"
-							nbtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-						end
+						if nbtn then nbtn.Text = "Off Noclip"; nbtn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
 					end
 
 					teleportInProgress = false
@@ -440,6 +466,8 @@ local function createNovaGUI(character)
 			end)
 		end
 	end
+
+	return screenGui, frame, buttonsMap
 end
 
 -- Setup Nova GUI for current character
@@ -454,16 +482,18 @@ player.CharacterAdded:Connect(function(c)
 
 	-- Ensure hrp.Anchored follows buttonStates.Anchor on respawn
 	if buttonStates.Anchor.Value then
-		root.Anchored = true
+		pcall(function() root.Anchored = true end)
+		savedWalkSpeed, savedJumpPower = hum.WalkSpeed, hum.JumpPower
+		hum.WalkSpeed = 0; hum.JumpPower = 0
 	else
-		root.Anchored = false
+		pcall(function() root.Anchored = false end)
 	end
 
 	-- re-create Nova GUI bound to new character instance (so Noclip toggles correct parts)
-	createNovaGUI(char)
+	novaGui, novaFrame, novaButtons = createNovaGUI(char)
 end)
 
--- Final note:
+-- Final note (inside script comments)
 -- 1) InstantSteal работает ТОЛЬКО если buttonStates.Teleport.Value == true
 -- 2) ProximityPrompt не меняет BoolValue Teleport (теперь пользователь сам включает/выключает)
 -- 3) Во время телепорта Anchor/Noclip применяются временно физически, но не записываются в BoolValues,
