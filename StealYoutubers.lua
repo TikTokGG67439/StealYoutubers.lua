@@ -342,15 +342,12 @@ local function createNovaGUI(character)
 
 				local tpPart = getPlayerPlotTpPart()
 				if not tpPart then return end
-
-				-- предотвращаем повторное срабатывание
 				if teleportInProgress then return end
 				teleportInProgress = true
 
 				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
-				teleportTarget = tpPart.Position + offset
+				local teleportTarget = tpPart.Position + offset
 
-				-- GUI: кнопка в процессе
 				local tb = buttonsMap["Teleport"]
 				if tb then
 					tb.Text = "InstantSteal (in progress)"
@@ -361,7 +358,7 @@ local function createNovaGUI(character)
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 
-				-- Сохраняем исходное состояние CanCollide всех частей
+				-- Сохраняем состояние CanCollide всех частей
 				local partsState = {}
 				for _, p in ipairs(character:GetDescendants()) do
 					if p:IsA("BasePart") then
@@ -369,7 +366,7 @@ local function createNovaGUI(character)
 					end
 				end
 
-				-- Временно включаем Anchor/Noclip, если они выключены
+				-- Временно включаем Anchor/Noclip
 				if not anchorWasOn and root then
 					root.Anchored = true
 					local abtn = buttonsMap["Anchor"]
@@ -390,7 +387,7 @@ local function createNovaGUI(character)
 					end
 				end
 
-				-- Телепорт с плавной анимацией
+				-- Плавный телепорт
 				task.spawn(function()
 					local duration = 0.5
 					local elapsed = 0
@@ -401,34 +398,38 @@ local function createNovaGUI(character)
 						root.CFrame = CFrame.new(root.Position:Lerp(teleportTarget, alpha))
 					end
 
-					task.wait(7) -- небольшая пауза после телепорта
+					-- **InstantSteal выключается сразу**
+					if tb then
+						tb.Text = "InstantSteal OFF"
+						tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
+					end
 
-					-- Синхронизация Anchor с текущим BoolValue
-					if root then
-						root.Anchored = buttonStates.Anchor.Value
+					-- **Ждём 5 секунд перед отключением Anchor/Noclip**
+					local waitTime = 5 -- регулируется
+					task.wait(waitTime)
+
+					-- отключаем Anchor
+					if root and not anchorWasOn then
+						root.Anchored = false
 						local abtn = buttonsMap["Anchor"]
 						if abtn then
-							abtn.Text = buttonStates.Anchor.Value and "Anchor ON" or "Anchor OFF"
-							abtn.BackgroundColor3 = buttonStates.Anchor.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+							abtn.Text = "Anchor OFF"
+							abtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 						end
 					end
 
-					-- Синхронизация CanCollide с текущим BoolValue Noclip
-					for p, _ in pairs(partsState) do
-						if p and p.Parent then
-							p.CanCollide = not buttonStates.Noclip.Value
+					-- отключаем Noclip
+					if not noclipWasOn then
+						for p, v in pairs(partsState) do
+							if p and p.Parent then
+								p.CanCollide = v
+							end
 						end
-					end
-					local nbtn = buttonsMap["Noclip"]
-					if nbtn then
-						nbtn.Text = buttonStates.Noclip.Value and "On Noclip" or "Off Noclip"
-						nbtn.BackgroundColor3 = buttonStates.Noclip.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
-					end
-
-					-- Восстанавливаем кнопку Teleport
-					if tb then
-						tb.Text = buttonStates.Teleport.Value and "InstantSteal ON" or "InstantSteal OFF"
-						tb.BackgroundColor3 = buttonStates.Teleport.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
+						local nbtn = buttonsMap["Noclip"]
+						if nbtn then
+							nbtn.Text = "Off Noclip"
+							nbtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+						end
 					end
 
 					teleportInProgress = false
