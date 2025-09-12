@@ -405,7 +405,7 @@ local function createNovaGUI(character)
 					end
 
 					-- **Ждём 5 секунд перед отключением Anchor/Noclip**
-					local waitTime = 5 -- регулируется
+					local waitTime = 10 -- регулируется
 					task.wait(waitTime)
 
 					-- отключаем Anchor
