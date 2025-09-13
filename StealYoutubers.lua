@@ -354,11 +354,9 @@ local function createNovaGUI(character)
 	end
 
 
-	-- ProximityPrompt handling (InstantSteal) — исправлённый блок
-	-- Таблица для уже подключённых ProximityPrompt
-	local observedPrompts = {}
+	-- ProximityPrompt handling (InstantSteal) — динамическое отслеживание
+	local observedPrompts = {} -- уже подключённые
 
-	-- Функция подключения обработчика к ProximityPrompt
 	local function connectPrompt(prompt)
 		if observedPrompts[prompt] then return end
 		observedPrompts[prompt] = true
@@ -399,7 +397,6 @@ local function createNovaGUI(character)
 					abtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 				end
 			end
-
 			if not noclipWasOn then
 				for p,_ in pairs(partsState) do
 					if p and p.Parent then p.CanCollide = false end
@@ -412,7 +409,6 @@ local function createNovaGUI(character)
 				end
 			end
 
-			-- Завершение телепорта
 			task.spawn(function()
 				while teleportInProgress do
 					RunService.RenderStepped:Wait()
@@ -434,7 +430,6 @@ local function createNovaGUI(character)
 						abtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 				end
-
 				if not noclipWasOn then
 					for p,v in pairs(partsState) do
 						if p and p.Parent then p.CanCollide = v end
@@ -452,14 +447,14 @@ local function createNovaGUI(character)
 		end)
 	end
 
-	-- Подключаем все существующие Prompts
+	-- Подключаем все текущие ProximityPrompt
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			connectPrompt(prompt)
 		end
 	end
 
-	-- Отслеживаем новые Prompts динамически
+	-- Отслеживаем новые ProximityPrompt динамически
 	workspace.DescendantAdded:Connect(function(desc)
 		if desc:IsA("ProximityPrompt") then
 			connectPrompt(desc)
