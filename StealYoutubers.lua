@@ -355,33 +355,30 @@ local function createNovaGUI(character)
 
 	
 	-- ProximityPrompt handling (InstantSteal) — исправлённый блок
-	-- ProximityPrompt handling (InstantSteal)
-	-- ---------------- InstantSteal ProximityPrompt (исправленный) ----------------
+	-- ---------------- InstantSteal ProximityPrompt (динамический) ----------------
+	local connectedPrompts = {}
+
 	local function setupInstantSteal(prompt)
-		if prompt:GetAttribute("InstantStealConnected") then return end
-		prompt:SetAttribute("InstantStealConnected", true)
+		if connectedPrompts[prompt] then return end
+		connectedPrompts[prompt] = true
 
 		prompt.Triggered:Connect(function(triggeringPlayer)
 			if triggeringPlayer ~= player then return end
 			if not buttonStates.Teleport.Value then return end
 
-			-- локальные переменные для этого запуска
-			local teleportInProgress = false
 			local tpPart = getPlayerPlotTpPart()
 			if not tpPart then return end
 
 			local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
 			local teleportTarget = tpPart.Position + offset
-			teleportInProgress = true
+			local teleportInProgress = true
 
-			-- обновляем UI
 			local tb = buttonsMap["Teleport"]
 			if tb then
 				tb.Text = "InstantSteal (in progress)"
 				tb.BackgroundColor3 = Color3.fromRGB(255,200,0)
 			end
 
-			-- сохраняем состояния Anchor/Noclip
 			local anchorWasOn = buttonStates.Anchor.Value
 			local noclipWasOn = buttonStates.Noclip.Value
 			local partsState = {}
@@ -389,7 +386,6 @@ local function createNovaGUI(character)
 				if p:IsA("BasePart") then partsState[p] = p.CanCollide end
 			end
 
-			-- временно включаем Anchor/Noclip если нужно
 			if not anchorWasOn and root then
 				root.Anchored = true
 				buttonStates.Anchor.Value = true
@@ -409,7 +405,6 @@ local function createNovaGUI(character)
 				end
 			end
 
-			-- интерполяция телепорта через RenderStepped
 			local progress = 0
 			local duration = 0.05 * 30
 			local connection
@@ -429,10 +424,8 @@ local function createNovaGUI(character)
 				end
 			end)
 
-			-- восстановление после завершения
 			task.spawn(function()
 				while teleportInProgress do task.wait() end
-
 				if tb then
 					tb.Text = buttonStates.Teleport.Value and "InstantSteal ON" or "InstantSteal OFF"
 					tb.BackgroundColor3 = buttonStates.Teleport.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
@@ -462,12 +455,19 @@ local function createNovaGUI(character)
 		end)
 	end
 
-	-- подключаем к каждому ProximityPrompt
+	-- подключаем все существующие Prompt’ы
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			setupInstantSteal(prompt)
 		end
 	end
+
+	-- подключаем новые Prompt’ы автоматически
+	workspace.DescendantAdded:Connect(function(desc)
+		if desc:IsA("ProximityPrompt") then
+			setupInstantSteal(desc)
+		end
+	end)
 end
 
 -- Setup Nova GUI for current character
