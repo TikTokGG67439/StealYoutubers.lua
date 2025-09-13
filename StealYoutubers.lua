@@ -311,33 +311,39 @@ local function createNovaGUI(character)
 	-- ProximityPrompt handling (InstantSteal) — исправлённый блок
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
+			-- защита от повторных подключений при респавне
+			if prompt:GetAttribute("InstantStealConnected") then
+				continue
+			end
+			prompt:SetAttribute("InstantStealConnected", true)
+
 			prompt.Triggered:Connect(function(triggeringPlayer)
 				if triggeringPlayer ~= player then return end
-				-- если InstantSteal выключен — не трогаем
+				-- если InstantSteal выключен — не выполняем ничего
 				if not buttonStates.Teleport.Value then return end
 				-- защита от повторного запуска
 				if teleportInProgress then return end
 
-				-- Получаем часть телепорта
+				-- Находим цель телепорта
 				local tpPart = getPlayerPlotTpPart()
 				if not tpPart then return end
 
+				-- задаём внешнюю цель и начинаем интерполяцию (RenderStepped её обрабатывает)
 				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
-				-- ВАЖНО: присваиваем внешней переменной, а не создаём локальную!
-				teleportTarget = tpPart.Position + offset
+				teleportTarget = tpPart.Position + offset      -- НЕ local !
 				teleportProgress = 0
 				teleportInProgress = true
 
-				-- Обновляем кнопку InstantSteal
+				-- обновляем UI
 				local tb = buttonsMap["Teleport"]
 				if tb then
 					tb.Text = "InstantSteal (in progress)"
 					tb.BackgroundColor3 = Color3.fromRGB(255,200,0)
 				end
-				-- флаг в ButtonStates (если тебе нужен)
+				-- пометить состояние, если нужно (в твоём коде ButtonStates используется)
 				buttonStates.Teleport.Value = true
 
-				-- Сохраняем состояние Anchor/Noclip
+				-- Сохраняем текущее состояние Anchor/Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 				local partsState = {}
@@ -345,7 +351,7 @@ local function createNovaGUI(character)
 					if p:IsA("BasePart") then partsState[p] = p.CanCollide end
 				end
 
-				-- Временно включаем Anchor/Noclip если надо
+				-- Временно включаем Anchor/Noclip, если они были выключены
 				if not anchorWasOn and root then
 					root.Anchored = true
 					buttonStates.Anchor.Value = true
@@ -353,40 +359,39 @@ local function createNovaGUI(character)
 					if abtn then abtn.Text = "Anchor ON"; abtn.BackgroundColor3 = Color3.fromRGB(60,60,60) end
 				end
 				if not noclipWasOn then
-					for p, _ in pairs(partsState) do p.CanCollide = false end
+					for p,_ in pairs(partsState) do
+						if p and p.Parent then p.CanCollide = false end
+					end
 					buttonStates.Noclip.Value = true
 					local nbtn = buttonsMap["Noclip"]
 					if nbtn then nbtn.Text = "On Noclip"; nbtn.BackgroundColor3 = Color3.fromRGB(60,60,60) end
 				end
 
-				-- НЕ дублируем интерполяцию здесь — используем общий RenderStepped loop,
-				-- а затем ожидаем его завершения, чтобы восстановить состояния.
+				-- Ждём завершения интерполяции (RenderStepped уменьшит teleportInProgress)
 				task.spawn(function()
-					-- ждём пока RenderStepped завершит интерполяцию (teleportInProgress станет false)
 					while teleportInProgress do
 						RunService.RenderStepped:Wait()
 					end
 
-					-- Завершаем InstantSteal (обновляем UI)
+					-- Завершаем InstantSteal (UI)
 					buttonStates.Teleport.Value = false
 					if tb then
 						tb.Text = "InstantSteal OFF"
 						tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
 					end
 
-					-- Подожем перед восстановлением Anchor/Noclip (как в оригинале)
+					-- Подождать перед восстановлением (как у тебя было)
 					task.wait(5)
 
-					-- Восстанавливаем Anchor/Noclip если они были выключены до начала
+					-- Восстанавливаем Anchor/Noclip только если они были выключены до начала
 					if root and not anchorWasOn then
 						root.Anchored = false
 						buttonStates.Anchor.Value = false
 						local abtn = buttonsMap["Anchor"]
 						if abtn then abtn.Text = "Anchor OFF"; abtn.BackgroundColor3 = Color3.fromRGB(150,150,150) end
 					end
-
 					if not noclipWasOn then
-						for p, v in pairs(partsState) do
+						for p,v in pairs(partsState) do
 							if p and p.Parent then p.CanCollide = v end
 						end
 						buttonStates.Noclip.Value = false
@@ -397,18 +402,6 @@ local function createNovaGUI(character)
 			end)
 		end
 	end
-end
-
-	-- Запускаем
-	setupInstantStealPrompts()
-
-	-- Авто-обновление при появлении новых промптов
-	workspace.DescendantAdded:Connect(function(desc)
-		if desc:IsA("ProximityPrompt") then
-			setupInstantStealPrompts()
-		end
-	end)
-
 end
 
 -- Setup Nova GUI for current character
