@@ -355,7 +355,7 @@ local function createNovaGUI(character)
 
 	
 	-- ProximityPrompt handling (InstantSteal) — исправлённый блок
-	-- ---------------- InstantSteal ProximityPrompt (исправленный, стабильный) ----------------
+	-- ---------------- InstantSteal ProximityPrompt (исправленный окончательно) ----------------
 	local connectedPrompts = {}
 
 	local function setupInstantSteal(prompt)
@@ -366,7 +366,6 @@ local function createNovaGUI(character)
 			if triggeringPlayer ~= player then return end
 			if not buttonStates.Teleport.Value then return end
 
-			-- Получаем цель телепорта
 			local tpPart = getPlayerPlotTpPart()
 			if not tpPart then return end
 			local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
@@ -379,7 +378,7 @@ local function createNovaGUI(character)
 				tb.BackgroundColor3 = Color3.fromRGB(255,200,0)
 			end
 
-			-- Сохраняем состояние Anchor/Noclip
+			-- Сохраняем состояния Anchor/Noclip
 			local anchorWasOn = buttonStates.Anchor.Value
 			local noclipWasOn = buttonStates.Noclip.Value
 			local partsState = {}
@@ -408,45 +407,39 @@ local function createNovaGUI(character)
 			end
 
 			-- Телепортация с интерполяцией
-			local teleportInProgress = true
 			local progress = 0
 			local duration = 0.05 * 30
+			local teleportActive = true
+
 			local connection
 			connection = RunService.RenderStepped:Connect(function(dt)
-				if not teleportInProgress or not buttonStates.Teleport.Value then
+				-- Если кнопка выключена или телепорт завершён — сразу отменяем
+				if not buttonStates.Teleport.Value or not teleportActive then
+					teleportActive = false
 					connection:Disconnect()
-					teleportInProgress = false
 					return
 				end
+
 				progress = math.clamp(progress + dt, 0, duration)
 				local alpha = progress / duration
 				if root then
 					root.CFrame = CFrame.new(root.Position:Lerp(teleportTarget, alpha))
 				end
 				if alpha >= 1 then
-					teleportInProgress = false
+					teleportActive = false
 					connection:Disconnect()
 				end
 			end)
 
-			-- Завершение и восстановление состояний
+			-- Восстановление состояний и UI
 			task.spawn(function()
-				while teleportInProgress do
-					task.wait()
-					-- если кнопка выключена во время полета, останавливаем
-					if not buttonStates.Teleport.Value then
-						teleportInProgress = false
-						break
-					end
-				end
+				while teleportActive do task.wait() end
 
-				-- Сбрасываем UI в соответствии с текущим состоянием кнопки
+				-- Сбрасываем UI
 				if tb then
 					tb.Text = buttonStates.Teleport.Value and "InstantSteal ON" or "InstantSteal OFF"
 					tb.BackgroundColor3 = buttonStates.Teleport.Value and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 				end
-
-				task.wait(0.5) -- небольшая пауза перед восстановлением Anchor/Noclip
 
 				-- Восстановление Anchor/Noclip
 				if root and not anchorWasOn then
@@ -473,7 +466,7 @@ local function createNovaGUI(character)
 		end)
 	end
 
-	-- Подключаем существующие Prompt
+	-- Подключаем все существующие Prompt
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			setupInstantSteal(prompt)
