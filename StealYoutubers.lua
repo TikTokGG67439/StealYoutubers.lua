@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 if not player then return end
-
+ 
 -- Ensure single run
 if script:GetAttribute("Initialized") then return end
 script:SetAttribute("Initialized", true)
@@ -105,7 +105,7 @@ for _, btngui2 in ipairs({mainBtn, upBtn, downBtn, tpBtn, toggleBox, tpBox}) do
 	local UiConers = Instance.new("UICorner")
 	UiConers.CornerRadius = UDim.new(0, 10)
 	UiConers.Parent = btngui2
-
+	
 	local UIStokes = Instance.new("UIStroke")
 	UIStokes.Thickness = 3
 	UIStokes.Color = Color3.fromRGB(0, 155, 186)
@@ -113,14 +113,14 @@ for _, btngui2 in ipairs({mainBtn, upBtn, downBtn, tpBtn, toggleBox, tpBox}) do
 end
 
 for _, btngui1 in ipairs({frame3}) do
-	local UiStrokes = Instance.new("UIStroke")
-	UiStrokes.Thickness = 3
-	UiStrokes.Color = Color3.fromRGB(198, 102, 38)
-	UiStrokes.Parent = btngui1
+local UiStrokes = Instance.new("UIStroke")
+UiStrokes.Thickness = 3
+UiStrokes.Color = Color3.fromRGB(198, 102, 38)
+UiStrokes.Parent = btngui1
 
-	local uiconerat = Instance.new("UICorner")
-	uiconerat.CornerRadius = UDim.new(0, 12)
-	uiconerat.Parent = btngui1
+local uiconerat = Instance.new("UICorner")
+uiconerat.CornerRadius = UDim.new(0, 12)
+uiconerat.Parent = btngui1
 end
 
 -- UICorners
@@ -353,121 +353,127 @@ local function createNovaGUI(character)
 		return nil
 	end
 
-
-	local CollectionService = game:GetService("CollectionService")
-
-	-- Помечаем новые ProximityPrompt тегом "InstantStealPrompt"
-	-- Реактивное слежение за ProximityPrompt
-local observedPrompts = {}
-
-local function handlePrompt(prompt)
-	if observedPrompts[prompt] then return end
-	observedPrompts[prompt] = true
-
-	prompt.Triggered:Connect(function(triggeringPlayer)
-		if triggeringPlayer ~= player then return end
-		if not buttonStates.Teleport.Value then return end
-		if teleportInProgress then return end
-
-		local tpPart = getPlayerPlotTpPart()
-		if not tpPart then return end
-
-		local offset = Vector3.new(math.random(-3,3),3,math.random(-3,3))
-		teleportTarget = tpPart.Position + offset
-		teleportProgress = 0
-		teleportInProgress = true
-
-		local tb = buttonsMap["Teleport"]
-		if tb then
-			tb.Text = "InstantSteal (in progress)"
-			tb.BackgroundColor3 = Color3.fromRGB(255,200,0)
-		end
-
-		-- Сохраняем текущее состояние Anchor/Noclip
-		local anchorWasOn = buttonStates.Anchor.Value
-		local noclipWasOn = buttonStates.Noclip.Value
-		local partsState = {}
-		for _, p in ipairs(char:GetDescendants()) do
-			if p:IsA("BasePart") then
-				partsState[p] = p.CanCollide
+	
+	-- ProximityPrompt handling (InstantSteal) — исправлённый блок
+	-- ProximityPrompt handling (InstantSteal)
+	for _, prompt in ipairs(workspace:GetDescendants()) do
+		if prompt:IsA("ProximityPrompt") then
+			-- защита от повторных подключений при респавне
+			if prompt:GetAttribute("InstantStealConnected") then
+				continue
 			end
-		end
+			prompt:SetAttribute("InstantStealConnected", true)
 
-		-- Временно включаем Anchor/Noclip
-		if not anchorWasOn and root then
-			root.Anchored = true
-			buttonStates.Anchor.Value = true
-			local abtn = buttonsMap["Anchor"]
-			if abtn then
-				abtn.Text = "Anchor ON"
-				abtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-			end
-		end
-		if not noclipWasOn then
-			for p,_ in pairs(partsState) do
-				if p and p.Parent then p.CanCollide = false end
-			end
-			buttonStates.Noclip.Value = true
-			local nbtn = buttonsMap["Noclip"]
-			if nbtn then
-				nbtn.Text = "On Noclip"
-				nbtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-			end
-		end
+			prompt.Triggered:Connect(function(triggeringPlayer)
+				if triggeringPlayer ~= player then return end
 
-		-- Завершаем интерполяцию
-		task.spawn(function()
-			while teleportInProgress do
-				RunService.RenderStepped:Wait()
-			end
-
-			if tb then
-				tb.Text = "InstantSteal OFF"
-				tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
-			end
-
-			task.wait(5)
-
-			-- Восстанавливаем Anchor/Noclip
-			if root and not anchorWasOn then
-				root.Anchored = false
-				buttonStates.Anchor.Value = false
-				local abtn = buttonsMap["Anchor"]
-				if abtn then
-					abtn.Text = "Anchor OFF"
-					abtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
+				-- если кнопка выключена — выходим
+				if not buttonStates.Teleport.Value then
+					return
 				end
-			end
-			if not noclipWasOn then
-				for p,v in pairs(partsState) do
-					if p and p.Parent then p.CanCollide = v end
-				end
-				buttonStates.Noclip.Value = false
-				local nbtn = buttonsMap["Noclip"]
-				if nbtn then
-					nbtn.Text = "Off Noclip"
-					nbtn.BackgroundColor3 = Color3.fromRGB(150,150,150)
-				end
-			end
 
-			teleportInProgress = false
-		end)
-	end)
-end
+				-- защита от повторного запуска
+				if teleportInProgress then return end
 
--- Подключаем все существующие Prompts
-for _, prompt in ipairs(workspace:GetDescendants()) do
-	if prompt:IsA("ProximityPrompt") then
-		handlePrompt(prompt)
+				-- Находим цель телепорта
+				local tpPart = getPlayerPlotTpPart()
+				if not tpPart then return end
+
+				-- задаём цель и запускаем интерполяцию
+				local offset = Vector3.new(math.random(-3, 3), 3, math.random(-3, 3))
+				teleportTarget = tpPart.Position + offset -- НЕ local !
+				teleportProgress = 0
+				teleportInProgress = true
+
+				-- обновляем UI
+				local tb = buttonsMap["Teleport"]
+				if tb then
+					tb.Text = "InstantSteal (in progress)"
+					tb.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+				end
+
+				-- ⚠️ УБРАНО: buttonStates.Teleport.Value = true
+				-- иначе кнопка сама включается даже если была OFF
+
+				-- Сохраняем текущее состояние Anchor/Noclip
+				local anchorWasOn = buttonStates.Anchor.Value
+				local noclipWasOn = buttonStates.Noclip.Value
+				local partsState = {}
+				for _, p in ipairs(character:GetDescendants()) do
+					if p:IsA("BasePart") then
+						partsState[p] = p.CanCollide
+					end
+				end
+
+				-- Временно включаем Anchor/Noclip
+				if not anchorWasOn and root then
+					root.Anchored = true
+					buttonStates.Anchor.Value = true
+					local abtn = buttonsMap["Anchor"]
+					if abtn then
+						abtn.Text = "Anchor ON"
+						abtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+					end
+				end
+				if not noclipWasOn then
+					for p, _ in pairs(partsState) do
+						if p and p.Parent then
+							p.CanCollide = false
+						end
+					end
+					buttonStates.Noclip.Value = true
+					local nbtn = buttonsMap["Noclip"]
+					if nbtn then
+						nbtn.Text = "On Noclip"
+						nbtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+					end
+				end
+
+				-- Ждём завершения интерполяции
+				task.spawn(function()
+					while teleportInProgress do
+						RunService.RenderStepped:Wait()
+					end
+
+					-- Завершаем InstantSteal (UI)
+					if tb then
+						tb.Text = "InstantSteal OFF"
+						tb.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+					end
+
+					-- Подождать перед восстановлением
+					task.wait(5)
+
+					-- Восстановить Anchor/Noclip
+					if root and not anchorWasOn then
+						root.Anchored = false
+						buttonStates.Anchor.Value = false
+						local abtn = buttonsMap["Anchor"]
+						if abtn then
+							abtn.Text = "Anchor OFF"
+							abtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+						end
+					end
+					if not noclipWasOn then
+						for p, v in pairs(partsState) do
+							if p and p.Parent then
+								p.CanCollide = v
+							end
+						end
+						buttonStates.Noclip.Value = false
+						local nbtn = buttonsMap["Noclip"]
+						if nbtn then
+							nbtn.Text = "Off Noclip"
+							nbtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+						end
+					end
+
+					-- ✅ гарантированный сброс
+					teleportInProgress = false
+				end)
+			end)
+		end
 	end
-end
-
--- Отслеживаем новые Prompts, которые появляются позже
-workspace.DescendantAdded:Connect(function(desc)
-	if desc:IsA("ProximityPrompt") then
-		handlePrompt(desc)
-	end
-end)
 end
 
 -- Setup Nova GUI for current character
