@@ -43,38 +43,85 @@ local function getOrCreateButtonStates()
 end
 local buttonStates = getOrCreateButtonStates()
 
+
+
 -- ---------------- GUI1 (Anchor) ----------------
+-- GUI
 local gui1 = Instance.new("ScreenGui")
 gui1.Name = "AnchorGUI_v1"
 gui1.ResetOnSpawn = false
 gui1.Parent = player:WaitForChild("PlayerGui")
 
+-- Frame
+local frame3 = Instance.new("Frame")
+frame3.Size = UDim2.new(0, 256, 0, 100)
+frame3.Position = UDim2.new(0.5, -128, 0.5, -143) -- центрирование
+frame3.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame3.Active = true
+frame3.Draggable = true
+frame3.Visible = true -- сделал видимым
+frame3.Parent = gui1
+
+-- Функция для кнопок
 local function makeBtn(parent, name, pos, size, txt)
-	local b = Instance.new("TextButton", parent)
+	local b = Instance.new("TextButton")
 	b.Name = name
-	b.Size = size
 	b.Position = pos
+	b.Size = size
 	b.Text = txt
 	b.BackgroundColor3 = Color3.fromRGB(28,28,28)
 	b.BackgroundTransparency = 0.15
 	b.TextColor3 = Color3.new(1,1,1)
 	b.Font = Enum.Font.ArialBold
 	b.TextScaled = true
+	b.Parent = parent
 	return b
 end
 
-local mainBtn = makeBtn(gui1, "AnchorBtn", UDim2.new(0,16,0,16), UDim2.new(0,180,0,42), "Anchor: OFF")
-local upBtn = makeBtn(gui1, "UpBtn", UDim2.new(0,200,0,16), UDim2.new(0,40,0,42), "▲"); upBtn.Visible = false
-local downBtn = makeBtn(gui1, "DownBtn", UDim2.new(0,245,0,16), UDim2.new(0,40,0,42), "▼"); downBtn.Visible = false
-local tpBtn = makeBtn(gui1, "TpBtn", UDim2.new(0,290,0,16), UDim2.new(0,60,0,42), "Tp"); tpBtn.Visible = false
+-- Кнопки
+local mainBtn = makeBtn(frame3, "AnchorBtn", UDim2.new(0,16,0,16), UDim2.new(0,180,0,42), "Anchor: OFF")
+local upBtn = makeBtn(frame3, "UpBtn", UDim2.new(0,200,0,50), UDim2.new(0,40,0,42), "▲"); upBtn.Visible = false
+local downBtn = makeBtn(frame3, "DownBtn", UDim2.new(0,145,0,50), UDim2.new(0,50,0,42), "▼"); downBtn.Visible = false
+local tpBtn = makeBtn(frame3, "TpBtn", UDim2.new(0,210,0,16), UDim2.new(0,43,0,42), "Tp"); tpBtn.Visible = false
 
-local toggleBox = Instance.new("TextBox", gui1)
-toggleBox.Size = UDim2.new(0,60,0,20); toggleBox.Position = UDim2.new(0,16,0,60); toggleBox.Text = "F"
-toggleBox.Font = Enum.Font.Arial; toggleBox.TextScaled = true
+-- TextBox
+local toggleBox = Instance.new("TextBox")
+toggleBox.Size = UDim2.new(0,60,0,20)
+toggleBox.Position = UDim2.new(0,16,0,60)
+toggleBox.Text = "F"
+toggleBox.Font = Enum.Font.Arial
+toggleBox.TextScaled = true
+toggleBox.Parent = frame3
 
-local tpBox = Instance.new("TextBox", gui1)
-tpBox.Size = UDim2.new(0,60,0,20); tpBox.Position = UDim2.new(0,80,0,60); tpBox.Text = "T"
-tpBox.Font = Enum.Font.Arial; tpBox.TextScaled = true
+local tpBox = Instance.new("TextBox")
+tpBox.Size = UDim2.new(0,60,0,20)
+tpBox.Position = UDim2.new(0,80,0,60)
+tpBox.Text = "T"
+tpBox.Font = Enum.Font.Arial
+tpBox.TextScaled = true
+tpBox.Parent = frame3
+
+for _, btngui2 in ipairs({mainBtn, upBtn, downBtn, tpBtn, toggleBox, tpBox}) do
+	local UiConers = Instance.new("UICorner")
+	UiConers.CornerRadius = UDim.new(0, 10)
+	UiConers.Parent = btngui2
+	
+	local UIStokes = Instance.new("UIStroke")
+	UIStokes.Thickness = 3
+	UIStokes.Color = Color3.fromRGB(0, 155, 186)
+	UIStokes.Parent = btngui2
+end
+
+for _, btngui1 in ipairs({frame3}) do
+local UiStrokes = Instance.new("UIStroke")
+UiStrokes.Thickness = 3
+UiStrokes.Color = Color3.fromRGB(198, 102, 38)
+UiStrokes.Parent = btngui1
+
+local uiconerat = Instance.new("UICorner")
+uiconerat.CornerRadius = UDim.new(0, 12)
+uiconerat.Parent = btngui1
+end
 
 -- UICorners
 local function addCorner(inst)
@@ -241,7 +288,7 @@ local function createNovaGUI(character)
 
 	-- InstantSteal
 	createButton("TeleportBtn_Nova", UDim2.new(0,10,0,150), buttonStates.Teleport, function(state, btn)
-		btn.Text = state and "InstantSteal ON" or "InstantSteal OFF"
+		btn.Text = state and "100% InstantSteal ON" or "100% InstantSteal OFF"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
@@ -256,13 +303,13 @@ local function createNovaGUI(character)
 
 	-- Forward Tp
 	createButton("ForwardTpBtn", UDim2.new(0,130,0,90), buttonStates.ForwardTp, function(state, btn)
-		btn.Text = state and "Byppas Noclip off" or "Byppas Noclip on"
+		btn.Text = state and "Wait while update" or "wait while update"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 	end)
 
 	-- FastSpeedSteal
 	createButton("FastSpeedBtn", UDim2.new(0,10,0,90), buttonStates.FastSpeedSteal, function(state, btn)
-		btn.Text = state and "Wait For Update" or "Wait for update"
+		btn.Text = state and "Noclip Byppas on" or "Noclip Byppas off"
 		btn.BackgroundColor3 = state and Color3.fromRGB(60,60,60) or Color3.fromRGB(150,150,150)
 		gui1.Enabled = state
 	end)
