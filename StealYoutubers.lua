@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 if not player then return end
-
+ 
 -- Ensure single run
 if script:GetAttribute("Initialized") then return end
 script:SetAttribute("Initialized", true)
@@ -306,9 +306,9 @@ local function createNovaGUI(character)
 		return nil
 	end
 
-	-- ProximityPrompt handling (InstantSteal)
-	-- ProximityPrompt handling (InstantSteal)
+	
 	-- ProximityPrompt handling (InstantSteal) — исправлённый блок
+	-- ProximityPrompt handling (InstantSteal) — финальная версия
 	for _, prompt in ipairs(workspace:GetDescendants()) do
 		if prompt:IsA("ProximityPrompt") then
 			-- защита от повторных подключений при респавне
@@ -319,7 +319,7 @@ local function createNovaGUI(character)
 
 			prompt.Triggered:Connect(function(triggeringPlayer)
 				if triggeringPlayer ~= player then return end
-				-- если InstantSteal выключен — не выполняем ничего
+				-- если InstantSteal выключен — выходим
 				if not buttonStates.Teleport.Value then return end
 				-- защита от повторного запуска
 				if teleportInProgress then return end
@@ -328,9 +328,12 @@ local function createNovaGUI(character)
 				local tpPart = getPlayerPlotTpPart()
 				if not tpPart then return end
 
-				-- задаём внешнюю цель и начинаем интерполяцию (RenderStepped её обрабатывает)
+				-- ещё раз проверяем кнопку перед стартом (на случай, если игрок успел её выключить)
+				if not buttonStates.Teleport.Value then return end
+
+				-- задаём внешнюю цель
 				local offset = Vector3.new(math.random(-3,3), 3, math.random(-3,3))
-				teleportTarget = tpPart.Position + offset      -- НЕ local !
+				teleportTarget = tpPart.Position + offset
 				teleportProgress = 0
 				teleportInProgress = true
 
@@ -340,10 +343,8 @@ local function createNovaGUI(character)
 					tb.Text = "InstantSteal (in progress)"
 					tb.BackgroundColor3 = Color3.fromRGB(255,200,0)
 				end
-				-- пометить состояние, если нужно (в твоём коде ButtonStates используется)
-				buttonStates.Teleport.Value = true
 
-				-- Сохраняем текущее состояние Anchor/Noclip
+				-- Сохраняем состояние Anchor/Noclip
 				local anchorWasOn = buttonStates.Anchor.Value
 				local noclipWasOn = buttonStates.Noclip.Value
 				local partsState = {}
@@ -351,7 +352,7 @@ local function createNovaGUI(character)
 					if p:IsA("BasePart") then partsState[p] = p.CanCollide end
 				end
 
-				-- Временно включаем Anchor/Noclip, если они были выключены
+				-- Временно включаем Anchor/Noclip
 				if not anchorWasOn and root then
 					root.Anchored = true
 					buttonStates.Anchor.Value = true
@@ -369,12 +370,17 @@ local function createNovaGUI(character)
 
 				-- Ждём завершения интерполяции (RenderStepped уменьшит teleportInProgress)
 				task.spawn(function()
-					while teleportInProgress do
-						RunService.RenderStepped:Wait()
-					end
+					local ok, err = pcall(function()
+						while teleportInProgress do
+							RunService.RenderStepped:Wait()
+						end
+					end)
+
+					-- ВСЕГДА сбрасываем флаги, даже если ошибка
+					teleportInProgress = false
+					buttonStates.Teleport.Value = false
 
 					-- Завершаем InstantSteal (UI)
-					buttonStates.Teleport.Value = false
 					if tb then
 						tb.Text = "InstantSteal OFF"
 						tb.BackgroundColor3 = Color3.fromRGB(150,150,150)
